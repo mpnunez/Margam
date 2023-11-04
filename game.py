@@ -1,5 +1,5 @@
-from enum import Enum
 import numpy as np
+from utils import Connect4Exception
 
 """
 Connect 4
@@ -8,12 +8,7 @@ M columns
 C 
 """
 
-class Connect4Exception(Exception):
-    pass
 
-class Color(Enum):
-    BLUE = 0
-    RED = 1
 
 class Game:
     def __init__(self,nrows=6,ncols=7,nconnectwins=4):
@@ -21,14 +16,15 @@ class Game:
         self.ncols = ncols
         self.nconnectwins = nconnectwins
         self.nplayers = 2
-        self.board = np.zeros([self.nrows,self.ncols,self.nplayers])
+        self.board = np.zeros([self.nplayers,self.nrows,self.ncols])
         self.current_player = 0
+        self.players = []
 
     def check_horizontal_win(self,player: int) -> bool:
         for row in range(self.nrows):
             n_consecutive = 0
             for col in range(self.ncols):
-                if self.board[row,col,player] == 1:
+                if self.board[player,row,col] == 1:
                     n_consecutive += 1
                 else:
                     n_consecutive = 0
@@ -41,7 +37,7 @@ class Game:
         for col in range(self.ncols):
             n_consecutive = 0
             for row in range(self.nrows):
-                if self.board[row,col,player] == 1:
+                if self.board[player,row,col] == 1:
                     n_consecutive += 1
                 else:
                     n_consecutive = 0
@@ -60,7 +56,7 @@ class Game:
             imax = np.min([row_col_sum,self.nrows-1])
             for row in range(imin,imax+1):
                 col = row_col_sum - row
-                if self.board[row,col,player] == 1:
+                if self.board[player,row,col] == 1:
                     n_consecutive += 1
                 else:
                     n_consecutive = 0
@@ -79,7 +75,7 @@ class Game:
             imax = np.min([self.ncols+row_col_diff-1,self.nrows-1])
             for row in range(imin,imax+1):
                 col = row - row_col_diff
-                if self.board[row,col,player] == 1:
+                if self.board[player,row,col] == 1:
                     n_consecutive += 1
                 else:
                     n_consecutive = 0
@@ -99,17 +95,63 @@ class Game:
     def drop_in_slot(self,player: int, col: int):
         row_to_drop = self.nrows-1
         while row_to_drop>=0:
-            if np.sum(self.board[row_to_drop,col,:]) == 0:
-                self.board[row_to_drop,col,player] = 1
+            if np.sum(self.board[:,row_to_drop,col]) == 0:
+                self.board[player,row_to_drop,col] = 1
                 return
             row_to_drop -= 1
             
         raise Connect4Exception(f"No empty slot in column {col}")
     
     def show_board(self):
-        print(self.board)
+        display_board = self.board[0,:,:] + 2 * self.board[1,:,:]
+        print(display_board)
+        
+    def get_valid_moves(self):
+        return [i for i in range(self.ncols) if np.sum(self.board[:,0,i]) == 0]
 
-
+    def let_player_move(self,player:int):
+        """
+        Return true if the player just won
+        """
+        
+        # Need to communicate to the player which # player they are
+        
+        player_move_scores = self.players[player].get_move_scores(self.board,player)
+        scored_moved = [(-score,ind) for ind, score in enumerate(player_move_scores)]
+        scored_moved = sorted(scored_moved)
+        
+        # Get the valid move with the highest player score
+        valid_moves = self.get_valid_moves()
+        for _, col in scored_moved:
+            if col in valid_moves:
+                actual_move = col
+                break
+            
+        self.drop_in_slot(player,actual_move)
+        
+        # Check for the player's win
+        
+    def play_game(self,show_board_each_move=False):
+        while len(self.get_valid_moves())>0:
+        
+            for ind, _ in enumerate(self.players):
+                
+                if show_board_each_move:
+                    self.show_board()
+                self.let_player_move(ind)
+                if self.check_win(ind):
+                    print(f"Player {ind} won!")
+                    if show_board_each_move:
+                        self.show_board()
+                    return
+                
+            
+            
+        print("Game was a draw")
+        
+        
+            
+        
 
 
     
