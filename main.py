@@ -7,6 +7,7 @@ def main():
     records = g.play_game(show_board_each_move=True)
     
     for mr in records:
+        mr.assign_scores()
         print(mr)
 
 if __name__ == "__main__":

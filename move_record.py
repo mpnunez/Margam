@@ -19,14 +19,15 @@ class MoveRecord:
         """
         Assign scores to each move based on game result
         """
-        n_slots = self.board_state.shape[2]
+        n_players,_, n_slots = self.board_state.shape
         n_legal_moves = len(self.legal_moves)
         self.move_scores = np.zeros(n_slots)
         
-        result_weight = discount_rate ** (self.game_length-self.move_ind)
-        self.moves_scores[self.selected_move] = result_weight * self.result + (1-result_weight) * (1/n_legal_moves)
+        moves_after = (self.game_length - self.move_ind) // n_players
+        result_weight = discount_rate ** moves_after
+        self.move_scores[self.selected_move] = result_weight * self.result + (1-result_weight) * (1/n_legal_moves)
         
-        remaining_score_balance = 1 - self.moves_scores.sum()
+        remaining_score_balance = 1 - self.move_scores.sum()
         unchosen_legal_moves = self.legal_moves.copy()
         unchosen_legal_moves.remove(self.selected_move)
         if unchosen_legal_moves:
