@@ -132,7 +132,7 @@ class Game:
         return actual_move
         
         
-    def play_game(self,show_board_each_move=False):
+    def play_game(self,show_board_each_move=False,verbose=False):
         
         if len(self.players) != self.nplayers:
             raise Connect4Exception(f"Need {self.nplayers} players")
@@ -180,8 +180,10 @@ class Game:
             mr.game_length = move_ind
             mr.result = 0.5 if winner == -1 else int(ind % self.nplayers == winner)
         
-        if winner == -1:
-            print("Game was a draw")
-        else:
-            print(f"Player {winner} won!")
+        if verbose:
+            if winner == -1:
+                print("Game was a draw")
+            else:
+                print(f"Player {winner} won!")
+            
         return game_data
