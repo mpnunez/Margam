@@ -1,5 +1,7 @@
 import numpy as np
 from utils import Connect4Exception
+from move_record import MoveRecord
+
 
 """
 Connect 4
@@ -105,6 +107,7 @@ class Game:
     def show_board(self):
         display_board = self.board[0,:,:] + 2 * self.board[1,:,:]
         print(display_board)
+        print()
         
     def get_valid_moves(self):
         return [i for i in range(self.ncols) if np.sum(self.board[:,0,i]) == 0]
@@ -115,8 +118,8 @@ class Game:
         """
         
         # Need to communicate to the player which # player they are
-        
-        player_move_scores = self.players[player].get_move_scores(self.board,player)
+        board_player_pov = self.board if player == 0 else self.board[::-1,:,:]
+        player_move_scores = self.players[player].get_move_scores(board_player_pov)
         scored_moved = [(-score,ind) for ind, score in enumerate(player_move_scores)]
         scored_moved = sorted(scored_moved)
         
@@ -131,10 +134,17 @@ class Game:
         
         # Check for the player's win
         
-    def play_game(self,show_board_each_move=False):
+    def play_game(self,record_game_data=False,show_board_each_move=False):
+        
+        if len(self.players) != self.nplayers:
+            raise Connect4Exception(f"Need {self.nplayers} players")
+        
+        game_data = []
+        
         while len(self.get_valid_moves())>0:
         
             for ind, _ in enumerate(self.players):
+                
                 
                 if show_board_each_move:
                     self.show_board()
@@ -143,23 +153,6 @@ class Game:
                     print(f"Player {ind} won!")
                     if show_board_each_move:
                         self.show_board()
-                    return
+                    return game_data
                 
-            
-            
         print("Game was a draw")
-        
-        
-            
-        
-
-
-    
-"""
-Game position is a numpy array of size
-nrows x ncols x nplayers
-"""
-# Game position is a 
-# Position is a np array
-# Current player is always
-
