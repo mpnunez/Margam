@@ -7,11 +7,11 @@ class Player(ABC):
         self.name = name or "nameless"
         
     @abstractmethod
-    def get_move_scores(self,board: np.array, player_id: int) -> np.array:
+    def get_move_scores(self,board: np.array) -> np.array:
         pass
     
 class HumanPlayer(Player):
-    def get_move_scores(self,board: np.array, player_id: int) -> np.array:
+    def get_move_scores(self,board: np.array) -> np.array:
         n_cols = board.shape[2]
         invalid_input = True
         while invalid_input:
@@ -31,7 +31,7 @@ class HumanPlayer(Player):
             
         
 class RandomPlayer(Player):
-    def get_move_scores(self,board: np.array, player_id: int) -> np.array:
+    def get_move_scores(self,board: np.array) -> np.array:
         n_cols = board.shape[2]
         random_scores = np.random.rand(n_cols)
         random_scores = random_scores / random_scores.sum()
