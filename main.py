@@ -16,7 +16,7 @@ def play_matches(player1, player2, n_games=100):
         for mr in records:
             mr.assign_scores()
  
-        all_move_records.append(records[-1])
+        all_move_records += records
         
     win_loss_ties= {
         "wins": sum(w == 0 for w in winners) / len(winners),
