@@ -8,7 +8,20 @@ class AIPlayer(Player):
     
     def __init__(self,name=None):
         super().__init__(name)
-        self.model = None
+        #self.model = None
+        
+        num_classes = 7
+        input_shape = (6, 7, 2)
+        self.model = keras.Sequential(
+            [
+                keras.Input(shape=input_shape),
+                layers.Conv2D(32, kernel_size=(3, 3), activation="relu"),
+                layers.MaxPooling2D(pool_size=(2, 2)),
+                layers.Flatten(),
+                layers.Dropout(0.5),
+                layers.Dense(num_classes, activation="softmax"),
+            ]
+        )
     
     
     def transform_board_state(self,baord_state: np.ndarray):
@@ -24,38 +37,24 @@ class AIPlayer(Player):
         
         y_train = np.stack([mr.move_scores for mr in move_records])
         
-        num_classes = 7
-        input_shape = (6, 7, 2)
         
-        self.model = keras.Sequential(
-            [
-                keras.Input(shape=input_shape),
-                layers.Conv2D(32, kernel_size=(3, 3), activation="relu"),
-                layers.MaxPooling2D(pool_size=(2, 2)),
-                layers.Flatten(),
-                layers.Dropout(0.5),
-                layers.Dense(num_classes, activation="softmax"),
-            ]
-        )
+        
+        
         
         batch_size = 128
-        epochs = 15
+        epochs = 40
         
         self.model.compile(loss="kl_divergence", optimizer="adam", metrics=["kullback_leibler_divergence"])
         
         self.model.fit(x_train, y_train, batch_size=batch_size, epochs=epochs, validation_split=0.1)
-    
+        
     def get_move_scores(self,board: np.array) -> np.array:
-        n_cols = board.shape[2]
-        random_scores = np.random.rand(n_cols)
-        random_scores = random_scores / random_scores.sum()
-        return random_scores
-        
-    def get_move_scores_ai(self,board: np.array) -> np.array:
-        
+
         # pre-process board
-        board_postproc = board.copy()
-        move_scores = self.model.predict(board_postproc)
+        board_postproc = np.array([board.copy()])
+        board_postproc = board_postproc.swapaxes(1,2).swapaxes(2,3)
+        move_scores = self.model.predict(board_postproc,verbose=0)[0]
+        
         
         return move_scores
         
