@@ -4,7 +4,7 @@ from aiplayer import AIPlayer
 
 def main():
     
-    n_training_games = 100
+    n_training_games = 10
     magnus = AIPlayer(name="Magnus")
     
     all_move_records = []
