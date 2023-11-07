@@ -186,4 +186,4 @@ class Game:
             else:
                 print(f"Player {self.players[winner]} won!")
             
-        return game_data
+        return winner, game_data

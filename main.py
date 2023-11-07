@@ -5,24 +5,23 @@ from tqdm import tqdm
 
 def play_matches(player1, player2, n_games=100):
     all_move_records = []
+    winners = []
     for _ in tqdm(range(n_games)):
         #print(f"{i}/{n_training_games}")
         g = Game()
         g.players = [player1,player2]
-        records = g.play_game(show_board_each_move=False)
+        winner, records = g.play_game(show_board_each_move=False)
+        winners.append(winner)
         
         for mr in records:
             mr.assign_scores()
-            
-        
-        
-            
-        all_move_records += records
+ 
+        all_move_records.append(records[-1])
         
     win_loss_ties= {
-        "wins": sum(mr.result == 0 for mr in all_move_records) / len(all_move_records),
-        "loss": sum(mr.result == 1 for mr in all_move_records) / len(all_move_records),
-        "tie": sum(mr.result == 0.5 for mr in all_move_records) / len(all_move_records),
+        "wins": sum(w == 0 for w in winners) / len(winners),
+        "loss": sum(w == 1 for w in winners) / len(winners),
+        "tie": sum(w == 0.5 for w in winners) / len(winners),
     }
         
     return all_move_records, win_loss_ties
