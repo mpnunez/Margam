@@ -184,6 +184,6 @@ class Game:
             if winner == -1:
                 print("Game was a draw")
             else:
-                print(f"Player {winner} won!")
+                print(f"Player {self.players[winner]} won!")
             
         return game_data

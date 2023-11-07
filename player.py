@@ -2,8 +2,7 @@ from abc import ABC, abstractmethod
 import numpy as np
 
 class Player(ABC):
-    def __init__(self,player_indx=0,name=None):
-        self.indx = player_indx
+    def __init__(self,name=None):
         self.name = name or "nameless"
         
     @abstractmethod
