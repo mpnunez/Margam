@@ -55,6 +55,7 @@ def window(game: Game, on_click):
     	
     nrows = 6
     ncols = 7
+    last_label = None
     for i in range(nrows):
        for j in range(ncols):
            pixmap = QPixmap('empty.png')
@@ -62,9 +63,18 @@ def window(game: Game, on_click):
            label = QLabel()
            label.setPixmap(pixmap)
            grid.addWidget(label,i,j)
+           last_label = label
+           
+    @pyqtSlot()
+    def change_picture():
+        pixmap = QPixmap('red.png')
+        pixmap = pixmap.scaledToWidth(100)
+        last_label.setPixmap(pixmap)
            
     for j in range(ncols):
-        grid.addWidget(QPushButton("Drop"),nrows,j)
+        drop_button = QPushButton("Drop")
+        grid.addWidget(drop_button,nrows,j)
+        drop_button.clicked.connect(change_picture)
         
     # Start game button
     start_button = QPushButton("Start Game")
@@ -83,11 +93,11 @@ def window(game: Game, on_click):
 
 def main():
     g = Game()
-    human = HumanGUIPlayer()
-    g.players = [human,RandomPlayer()]
+    human = HumanGUIPlayer(name="Human")
+    g.players = [human,RandomPlayer(name="Random Bot")]
     
     @pyqtSlot()
-    def on_click(self):
+    def on_click():
         g.play_game(show_board_each_move=True,verbose=True)
     
     window(g,on_click)
