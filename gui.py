@@ -10,6 +10,7 @@ from player import Player
 import numpy as np
 import time
 
+
 class HumanGUIPlayer(Player):
     
     def __init__(self,name=None,gui=None):
@@ -47,7 +48,7 @@ class HumanGUIPlayer(Player):
         scores[slot_to_drop] = 1
         return scores
 
-def window(game: Game):
+def window(game: Game, on_click):
     app = QApplication(sys.argv)
     win = QWidget()
     grid = QGridLayout()
@@ -64,14 +65,19 @@ def window(game: Game):
            
     for j in range(ncols):
         grid.addWidget(QPushButton("Drop"),nrows,j)
-           
+        
+    # Start game button
+    start_button = QPushButton("Start Game")
+    start_button.clicked.connect(on_click)   
+    grid.addWidget(start_button,nrows+1,0)
+        
     			
     win.setLayout(grid)
     win.setWindowTitle("PyQt Grid Example")
     win.setGeometry(50,50,200,200)
     win.show()
     
-    game.play_game(show_board_each_move=True)
+    #game.play_game(show_board_each_move=True)
     
     sys.exit(app.exec_())
 
@@ -80,7 +86,11 @@ def main():
     human = HumanGUIPlayer()
     g.players = [human,RandomPlayer()]
     
-    window(g)
+    @pyqtSlot()
+    def on_click(self):
+        g.play_game(show_board_each_move=True,verbose=True)
+    
+    window(g,on_click)
     
     
 
