@@ -10,6 +10,7 @@ from player import Player
 import numpy as np
 import time
 
+import functools
 
 class HumanGUIPlayer(Player):
     
@@ -55,26 +56,38 @@ def window(game: Game, on_click):
     	
     nrows = 6
     ncols = 7
-    last_label = None
+    
+    
+    empty_pixmap = QPixmap('empty.png')
+    empty_pixmap = empty_pixmap.scaledToWidth(100)
+    red_pixmap = QPixmap('empty.png')
+    red_pixmap = red_pixmap.scaledToWidth(100)
+    blue_pixmap = QPixmap('empty.png')
+    blue_pixmap = blue_pixmap.scaledToWidth(100)
+    
+    label_grid = []
+    
     for i in range(nrows):
-       for j in range(ncols):
-           pixmap = QPixmap('empty.png')
-           pixmap = pixmap.scaledToWidth(100)
-           label = QLabel()
-           label.setPixmap(pixmap)
-           grid.addWidget(label,i,j)
-           last_label = label
+        label_row = []
+        for j in range(ncols):
+           
+            label = QLabel()
+            label.setPixmap(empty_pixmap)
+            grid.addWidget(label,i,j)
+            label_row.append(label)
+           
+        label_grid.append(label_row)
            
     @pyqtSlot()
-    def change_picture():
+    def change_picture(j):
         pixmap = QPixmap('red.png')
         pixmap = pixmap.scaledToWidth(100)
-        last_label.setPixmap(pixmap)
+        label_grid[-1][j].setPixmap(pixmap)
            
     for j in range(ncols):
         drop_button = QPushButton("Drop")
         grid.addWidget(drop_button,nrows,j)
-        drop_button.clicked.connect(change_picture)
+        drop_button.clicked.connect(functools.partial(change_picture, j))
         
     # Start game button
     start_button = QPushButton("Start Game")
