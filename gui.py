@@ -49,7 +49,7 @@ class HumanGUIPlayer(Player):
         scores[slot_to_drop] = 1
         return scores
 
-def window(game: Game, on_click):
+def window(game: Game):
     app = QApplication(sys.argv)
     win = QWidget()
     grid = QGridLayout()
@@ -90,8 +90,18 @@ def window(game: Game, on_click):
         drop_button.clicked.connect(functools.partial(change_picture, j))
         
     # Start game button
+    @pyqtSlot()
+    def on_click():
+        for turn in game.play_game(show_board_each_move=True,verbose=True):
+            for i in range(nrows):
+                for j in range(ncols):
+                    if game.board[0][i][j] == 1:
+                        label_grid[-1][j].setPixmap(red_pixmap)
+                    elif game.board[1][i][j] == 1:
+                        label_grid[-1][j].setPixmap(blue_pixmap)
+
     start_button = QPushButton("Start Game")
-    start_button.clicked.connect(on_click)   
+    start_button.clicked.connect(on_click)
     grid.addWidget(start_button,nrows+1,0)
         
     			
@@ -109,11 +119,8 @@ def main():
     human = HumanGUIPlayer(name="Human")
     g.players = [human,RandomPlayer(name="Random Bot")]
     
-    @pyqtSlot()
-    def on_click():
-        g.play_game(show_board_each_move=True,verbose=True)
-    
-    window(g,on_click)
+
+    window(g)
     
     
 

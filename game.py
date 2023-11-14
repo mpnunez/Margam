@@ -175,6 +175,8 @@ class Game:
                     continue_playing = False
                     break
                 
+                yield
+                
         
         for ind, mr in enumerate(game_data):
             mr.game_length = move_ind
