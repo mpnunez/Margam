@@ -73,11 +73,13 @@ def window(game: Game):
         game.players[0].next_move = j
         
         game.next_player_make_move()
+        update_board()    # Does not update in GUI event loop until this function is complete
         if game.status == GameStatus.COMPLETE:
             game.finish_game()
             return
-        time.sleep(1)
+        #time.sleep(1)
         game.next_player_make_move()
+        update_board()
         if game.status == GameStatus.COMPLETE:
             game.finish_game()
             return
