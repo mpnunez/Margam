@@ -9,8 +9,9 @@ def play_matches(player1, player2, n_games=100):
     for _ in tqdm(range(n_games)):
         #print(f"{i}/{n_training_games}")
         g = Game()
+        #g.verbose= True
         g.players = [player1,player2]
-        winner, records = g.play_game(show_board_each_move=False)
+        winner, records = g.play_game()
         winners.append(winner)
         
         for mr in records:
@@ -21,7 +22,7 @@ def play_matches(player1, player2, n_games=100):
     win_loss_ties= {
         "wins": sum(w == 0 for w in winners) / len(winners),
         "loss": sum(w == 1 for w in winners) / len(winners),
-        "tie": sum(w == 0.5 for w in winners) / len(winners),
+        "tie": sum(w == -1 for w in winners) / len(winners),
     }
         
     return all_move_records, win_loss_ties

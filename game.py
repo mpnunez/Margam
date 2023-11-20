@@ -1,16 +1,12 @@
 import numpy as np
 from utils import Connect4Exception
 from move_record import MoveRecord
+from enum import Enum
 
-
-"""
-Connect 4
-N rows
-M columns
-C 
-"""
-
-
+class GameStatus(Enum):
+    NOTSTARTED = 1
+    INPROGRESS = 2
+    COMPLETE = 3
 
 class Game:
     def __init__(self,nrows=6,ncols=7,nconnectwins=4):
@@ -21,6 +17,11 @@ class Game:
         self.board = np.zeros([self.nplayers,self.nrows,self.ncols])
         self.current_player = 0
         self.players = []
+        self.status = GameStatus.NOTSTARTED
+        self.game_data = []
+        self.winner = -1
+        self.move_ind = -1
+        self.verbose = False
 
     def check_horizontal_win(self,player: int) -> bool:
         for row in range(self.nrows):
@@ -92,7 +93,12 @@ class Game:
         Return True if there are 4 1's in a row in the first channel
         """
         
-        return self.check_horizontal_win(player) or self.check_vertical_win(player) or self.check_diagonal_ll_ur_win(player) or self.check_diagonal_ul_lr_win(player)
+        someone_won = self.check_horizontal_win(player) or self.check_vertical_win(player) or self.check_diagonal_ll_ur_win(player) or self.check_diagonal_ul_lr_win(player)
+        if someone_won:
+            self.winner = player
+            self.status = GameStatus.COMPLETE
+            
+        return someone_won
     
     def drop_in_slot(self,player: int, col: int):
         row_to_drop = self.nrows-1
@@ -131,61 +137,58 @@ class Game:
             
         return actual_move
         
-        
-    def play_game(self,show_board_each_move=False,verbose=False):
-        
+    
+    def start_game(self):
         if len(self.players) != self.nplayers:
             raise Connect4Exception(f"Need {self.nplayers} players")
+        self.status = GameStatus.INPROGRESS
+    
+    def next_player_make_move(self):
+        if self.verbose:
+            self.show_board()
+        self.move_ind += 1
+        self.current_player = self.move_ind % len(self.players)
+        player = self.players[self.current_player]
         
-        game_data = []
+        legal_moves, illegal_moves = self.get_valid_invalid_moves()
+        if len(legal_moves) == 0:
+            self.status = GameStatus.COMPLETE
+            return
+            
+        board_player_pov = self.board if self.current_player == 0 else self.board[::-1,:,:]
+        player_move = self.get_player_move(player,board_player_pov)
         
-        continue_playing = True
-        winner = -1
-        move_ind = -1
-        while continue_playing:
+        move_record = MoveRecord(
+            board_state = board_player_pov.copy(),
+            legal_moves = legal_moves,
+            illegal_moves = illegal_moves,
+            selected_move = player_move,
+            move_ind = self.move_ind,
+            )
+        self.game_data.append(move_record)
+        self.drop_in_slot(self.current_player,player_move)
+        self.check_win(self.current_player)
+    
+    def play_game(self):
         
-            for ind, player in enumerate(self.players):
-                move_ind += 1
-                legal_moves, illegal_moves = self.get_valid_invalid_moves()
-                if len(legal_moves) == 0:
-                    continue_playing = False
-                    break
+        self.start_game()
+        while self.status == GameStatus.INPROGRESS:
+            self.next_player_make_move()
+            
+        self.finish_game()
+        return self.winner, self.game_data
                 
-                if show_board_each_move:
-                    self.show_board()
-                    
-                board_player_pov = self.board if ind == 0 else self.board[::-1,:,:]
-                player_move = self.get_player_move(player,board_player_pov)
-                
-                move_record = MoveRecord(
-                    board_state = board_player_pov.copy(),
-                    legal_moves = legal_moves,
-                    illegal_moves = illegal_moves,
-                    selected_move = player_move,
-                    move_ind = move_ind,
-                    )
-                game_data.append(move_record)
-                    
-                self.drop_in_slot(ind,player_move)
-                if self.check_win(ind):
-                    
-                    if show_board_each_move:
-                        self.show_board()
-                    winner = ind
-                    continue_playing = False
-                    break
-                
-                yield
-                
+    def finish_game(self):        
         
-        for ind, mr in enumerate(game_data):
-            mr.game_length = move_ind
-            mr.result = 0.5 if winner == -1 else int(ind % self.nplayers == winner)
+        for ind, mr in enumerate(self.game_data):
+            mr.game_length = self.move_ind
+            mr.result = 0.5 if self.winner == -1 else int(ind % self.nplayers == self.winner)
         
-        if verbose:
-            if winner == -1:
+        if self.verbose:
+            self.show_board()
+            if self.winner == -1:
                 print("Game was a draw")
             else:
-                print(f"Player {self.players[winner].name} won!")
+                print(f"Player {self.players[self.winner].name} won!")
             
-        return winner, game_data
+        
