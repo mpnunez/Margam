@@ -5,7 +5,7 @@ from PyQt5.QtCore import pyqtSlot
 from PyQt5.QtGui import QPixmap
 
 from player import RandomPlayer, HumanPlayer
-from game import Game
+from game import Game, GameStatus
 from player import Player
 import numpy as np
 import time
@@ -16,38 +16,13 @@ class HumanGUIPlayer(Player):
     
     def __init__(self,name=None,gui=None):
         super().__init__(name)
-        self.gui = gui
+        self.next_move = 0
     
     def get_move_scores(self,board: np.array) -> np.array:
         n_cols = board.shape[2]
-        invalid_input = True
-        while invalid_input:
-            new_input = input(f"Select column to drop token into [0-{n_cols-1}]\n")
-            try:
-                slot_to_drop = int(new_input)
-            except ValueError:
-                continue
-            
-            if 0 <= slot_to_drop and slot_to_drop < n_cols:
-                invalid_input = False
-                
-        scores = np.zeros(n_cols)
-        scores[slot_to_drop] = 1
-        return scores
-    
-    def get_move_scores_gui(self,board: np.array) -> np.array:
-        n_cols = board.shape[2]
-        
-        # Waiting for button press
-        slot_to_drop = None
-        while slot_to_drop is None:
-            #slot_to_drop = gui.last_button_pressed() # ??
-            return np.array([1,0,0,0,0,0,0])
-            time.sleep(0.10)
-                
-        scores = np.zeros(n_cols)
-        scores[slot_to_drop] = 1
-        return scores
+        move_scores = np.zeros(n_cols)
+        move_scores[self.next_move] = 1
+        return move_scores
 
 def window(game: Game):
     app = QApplication(sys.argv)
@@ -77,12 +52,36 @@ def window(game: Game):
             label_row.append(label)
            
         label_grid.append(label_row)
-           
+    
+    def update_board():
+        for i in range(nrows):
+            for j in range(ncols):
+                if game.board[0,i,j] == 1:
+                    pixmap = QPixmap('red.png')
+                elif game.board[1,i,j] == 1:
+                    pixmap = QPixmap('blue.png')
+                else:
+                    pixmap = QPixmap('empty.png')
+                pixmap = pixmap.scaledToWidth(100)
+                label_grid[i][j].setPixmap(pixmap)
+    
     @pyqtSlot()
     def change_picture(j):
-        pixmap = QPixmap('red.png')
-        pixmap = pixmap.scaledToWidth(100)
-        label_grid[-1][j].setPixmap(pixmap)
+        if game.status == GameStatus.COMPLETE:
+            print("Game is done!")
+            return
+        game.players[0].next_move = j
+        
+        game.next_player_make_move()
+        if game.status == GameStatus.COMPLETE:
+            game.finish_game()
+            return
+        time.sleep(1)
+        game.next_player_make_move()
+        if game.status == GameStatus.COMPLETE:
+            game.finish_game()
+            return
+        
            
     for j in range(ncols):
         drop_button = QPushButton("Drop")
@@ -92,13 +91,7 @@ def window(game: Game):
     # Start game button
     @pyqtSlot()
     def on_click():
-        for turn in game.play_game(show_board_each_move=True,verbose=True):
-            for i in range(nrows):
-                for j in range(ncols):
-                    if game.board[0][i][j] == 1:
-                        label_grid[-1][j].setPixmap(red_pixmap)
-                    elif game.board[1][i][j] == 1:
-                        label_grid[-1][j].setPixmap(blue_pixmap)
+        game.start_game()
 
     start_button = QPushButton("Start Game")
     start_button.clicked.connect(on_click)
@@ -118,7 +111,7 @@ def main():
     g = Game()
     human = HumanGUIPlayer(name="Human")
     g.players = [human,RandomPlayer(name="Random Bot")]
-    
+    g.verbose = True
 
     window(g)
     
