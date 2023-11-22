@@ -1,5 +1,5 @@
 from game import Game
-from player import RandomPlayer
+from player import RandomPlayer, ColumnSpammer
 from aiplayer import AIPlayer
 from tqdm import tqdm
 import pickle
@@ -47,13 +47,13 @@ def main():
     
     magnus = AIPlayer(name="Magnus")
     random_bot = RandomPlayer("Random Bot")
-    opponents = [random_bot]
+    opponents = [random_bot, ColumnSpammer(name="ColumnSpammer",randomness_weight=0.2)]
     
-    n_training_rounds = 3
+    n_training_rounds = 10
     for training_round in range(n_training_rounds):
     
         trainee = random_bot if training_round == 0 else magnus    # Use random bot in 1st round to save time 
-        all_move_records, win_loss_ties = play_matches(trainee, opponents, n_games=100)
+        all_move_records, win_loss_ties = play_matches(trainee, opponents, n_games=500)
         print("Opponents:")
         print([op.name for op in opponents])
         print(win_loss_ties)
@@ -63,7 +63,7 @@ def main():
         magnus.model.save_weights(chkpt_fname)
         
         # Add copy of self to opponent list
-        magnus_clone = AIPlayer(name=f"Magnus-{training_round}")
+        magnus_clone = AIPlayer(name=f"Magnus-{training_round}",randomness_weight=0.2)
         magnus_clone.model.load_weights(chkpt_fname).expect_partial()
         opponents.append(magnus_clone)
 

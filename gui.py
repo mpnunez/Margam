@@ -20,7 +20,7 @@ class HumanGUIPlayer(Player):
         super().__init__(name)
         self.next_move = 0
     
-    def get_move_scores(self,board: np.array) -> np.array:
+    def get_move_scores_deterministic(self,board: np.array) -> np.array:
         n_cols = board.shape[2]
         move_scores = np.zeros(n_cols)
         move_scores[self.next_move] = 1
@@ -115,9 +115,9 @@ def main():
     g = Game()
     human = HumanGUIPlayer(name="Human")
     magnus = AIPlayer(name="Magnus")
-    magnus.model.load_weights('magnus-weights-2.ckpt')
+    magnus.model.load_weights('magnus-weights-3.ckpt')
     g.players = [human,magnus]
-    #g.verbose = True
+    g.verbose = True
 
     window(g)
     
