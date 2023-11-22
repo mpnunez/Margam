@@ -115,9 +115,9 @@ def main():
     g = Game()
     human = HumanGUIPlayer(name="Human")
     magnus = AIPlayer(name="Magnus")
-    magnus.model.load_weights('magnus_weights.ckpt')
+    magnus.model.load_weights('magnus-weights-2.ckpt')
     g.players = [human,magnus]
-    g.verbose = True
+    #g.verbose = True
 
     window(g)
     
