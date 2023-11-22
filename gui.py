@@ -4,6 +4,7 @@ from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import pyqtSlot
 from PyQt5.QtGui import QPixmap
 
+from aiplayer import AIPlayer
 from player import RandomPlayer, HumanPlayer
 from game import Game, GameStatus
 from player import Player
@@ -11,6 +12,7 @@ import numpy as np
 import time
 
 import functools
+import pickle
 
 class HumanGUIPlayer(Player):
     
@@ -112,7 +114,9 @@ def window(game: Game):
 def main():
     g = Game()
     human = HumanGUIPlayer(name="Human")
-    g.players = [human,RandomPlayer(name="Random Bot")]
+    magnus = AIPlayer(name="Magnus")
+    magnus.model.load_weights('magnus_weights.ckpt')
+    g.players = [human,magnus]
     g.verbose = True
 
     window(g)

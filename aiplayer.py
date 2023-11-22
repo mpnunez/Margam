@@ -8,7 +8,6 @@ class AIPlayer(Player):
     
     def __init__(self,name=None):
         super().__init__(name)
-        #self.model = None
         
         num_classes = 7
         input_shape = (6, 7, 2)

@@ -2,11 +2,12 @@ from game import Game
 from player import RandomPlayer
 from aiplayer import AIPlayer
 from tqdm import tqdm
+import pickle
 
 def play_matches(player1, player2, n_games=100):
     all_move_records = []
     winners = []
-    for _ in tqdm(range(n_games)):
+    for i in tqdm(range(n_games)):
         #print(f"{i}/{n_training_games}")
         g = Game()
         #g.verbose= True
@@ -39,6 +40,8 @@ def main():
         
     #print(all_move_records[-1])
     magnus.train_on_game_data(all_move_records)
+    magnus.model.save_weights('magnus_weights.ckpt')
+    
     
     all_move_records, win_loss_ties = play_matches(magnus, random_bot, n_games=100)
     print("After training")
