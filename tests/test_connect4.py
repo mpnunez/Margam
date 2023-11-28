@@ -6,7 +6,7 @@ Created on Sun Oct 29 19:55:45 2023
 """
 
 import pytest
-from game import Game
+from connect4lib.game import Game
 
 @pytest.mark.parametrize("player_moves,is_there_a_win", 
                          [

@@ -34,7 +34,3 @@ class MoveRecord:
             self.move_scores[unchosen_legal_moves] = remaining_score_balance / len(unchosen_legal_moves)
         
         return self.move_scores
-    
-    
-if __name__ == "__main__":
-    m = MoveRecord()

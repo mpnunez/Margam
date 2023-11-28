@@ -3,6 +3,8 @@ import numpy as np
 import random
 
 class Player(ABC):
+    requires_user_input = False
+    
     def __init__(self,name=None,randomness_weight=0):
         self.name = name or "nameless"
         self.random_weight = randomness_weight
@@ -21,6 +23,7 @@ class Player(ABC):
         return self.random_weight * self.get_random_move_scores(board) + (1-self.random_weight)*self.get_move_scores_deterministic(board)
     
 class HumanPlayer(Player):
+    requires_user_input = True
     def get_move_scores_deterministic(self,board: np.array) -> np.array:
         n_cols = board.shape[2]
         invalid_input = True

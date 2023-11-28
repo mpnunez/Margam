@@ -1,4 +1,4 @@
-from player import Player
+from connect4lib.player import Player
 import numpy as np
 
 from tensorflow import keras
@@ -14,20 +14,13 @@ class AIPlayer(Player):
         self.model = keras.Sequential(
             [
                 keras.Input(shape=input_shape),
+                layers.Conv2D(64, 4),
                 layers.Flatten(),
                 layers.Dense(50, activation="relu"),
                 layers.Dense(num_classes, activation="softmax"),
             ]
         )
-    
-    
-    def transform_board_state(self,baord_state: np.ndarray):
-        """
-        Transform board to dimensions needed by CNN
-        """
-        pass
         
-
     def train_on_game_data(self,move_records):
         x_train = np.stack([mr.board_state for mr in move_records])
         x_train = x_train.swapaxes(1,2).swapaxes(2,3)

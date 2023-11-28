@@ -1,6 +1,6 @@
 import numpy as np
-from utils import Connect4Exception
-from move_record import MoveRecord
+from connect4lib.utils import Connect4Exception
+from connect4lib.move_record import MoveRecord
 from enum import Enum
 
 class GameStatus(Enum):
@@ -20,7 +20,7 @@ class Game:
         self.status = GameStatus.NOTSTARTED
         self.game_data = []
         self.winner = -1
-        self.move_ind = -1
+        self.move_ind = 0
         self.verbose = False
 
     def check_horizontal_win(self,player: int) -> bool:
@@ -141,13 +141,13 @@ class Game:
     def start_game(self):
         if len(self.players) != self.nplayers:
             raise Connect4Exception(f"Need {self.nplayers} players")
+        self.board = np.zeros([self.nplayers,self.nrows,self.ncols])
         self.status = GameStatus.INPROGRESS
     
-    def next_player_make_move(self):
+    def get_next_player_move(self):
         if self.verbose:
             self.show_board()
-        self.move_ind += 1
-        self.current_player = self.move_ind % len(self.players)
+        
         player = self.players[self.current_player]
         
         legal_moves, illegal_moves = self.get_valid_invalid_moves()
@@ -157,7 +157,7 @@ class Game:
             
         board_player_pov = self.board if self.current_player == 0 else self.board[::-1,:,:]
         player_move = self.get_player_move(player,board_player_pov)
-        
+
         move_record = MoveRecord(
             board_state = board_player_pov.copy(),
             legal_moves = legal_moves,
@@ -166,8 +166,23 @@ class Game:
             move_ind = self.move_ind,
             )
         self.game_data.append(move_record)
+
+        return player_move
+
+    
+    def move_next_player_with(self,player_move):
+
+        
         self.drop_in_slot(self.current_player,player_move)
         self.check_win(self.current_player)
+        if self.status == GameStatus.INPROGRESS:
+            self.move_ind += 1
+            self.current_player = self.move_ind % len(self.players)
+
+
+    def next_player_make_move(self):
+        next_move = self.get_next_player_move()
+        self.move_next_player_with(next_move)
     
     def play_game(self):
         

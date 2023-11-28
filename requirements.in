@@ -1,0 +1,5 @@
+tensorflow
+keras
+pyqt5<5.12
+tqdm
+
