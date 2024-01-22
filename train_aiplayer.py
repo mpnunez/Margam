@@ -27,9 +27,6 @@ def play_matches(trainee, opponents, n_games=100):
         
         
         winner, records = g.play_game()
-        
-        for mr in records:
-            mr.assign_scores()
         all_move_records += records
         
         if winner == -1:
@@ -49,11 +46,11 @@ def main():
     random_bot = RandomPlayer("Random Bot")
     opponents = [random_bot, ColumnSpammer(name="ColumnSpammer",randomness_weight=0.2)]
     
-    n_training_rounds = 3
+    n_training_rounds = 10
     for training_round in range(n_training_rounds):
     
         trainee = random_bot if training_round == 0 else magnus    # Use random bot in 1st round to save time 
-        all_move_records, win_loss_ties = play_matches(trainee, opponents, n_games=10)
+        all_move_records, win_loss_ties = play_matches(trainee, opponents, n_games=100)
 
         # Print table of win/loss/tie/records
         print("Opponent\tWins\tLosses\tTies")
@@ -63,7 +60,8 @@ def main():
                 print(f"{col}\t",end='')
             print()
             
-        magnus.train_on_game_data(all_move_records)
+        winning_move_records = [mr for mr in all_move_records if mr.result == 1]
+        magnus.train_on_game_data(winning_move_records)
         chkpt_fname = f'magnus-{training_round}.h5'
         magnus.model.save(chkpt_fname)
         

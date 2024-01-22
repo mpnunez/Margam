@@ -165,6 +165,7 @@ class Game:
             selected_move = player_move,
             move_ind = self.move_ind,
             )
+        move_record.move_scores[player_move] = 1
         self.game_data.append(move_record)
 
         return player_move

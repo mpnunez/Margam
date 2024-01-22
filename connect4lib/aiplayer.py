@@ -29,7 +29,7 @@ class AIPlayer(Player):
         epochs = 30
 
         self.model.compile(loss="mean_absolute_error", optimizer="adam", metrics=["mean_absolute_error"])
-        self.model.fit(x_train, y_train, batch_size=batch_size, epochs=epochs, validation_split=0.1)
+        self.model.fit(x_train, y_train, batch_size=batch_size, epochs=epochs, validation_split=0.1, verbose=0)
         
     def get_move_scores_deterministic(self,board: np.array) -> np.array:
 
