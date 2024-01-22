@@ -10,6 +10,7 @@ class MoveRecord:
     selected_move: int = 0
     move_ind: int = 0
     game_length: int = 0
+    player_name: str = ""
     
     # Results
     result: int = 0

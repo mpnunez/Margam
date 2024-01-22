@@ -50,20 +50,12 @@ class RandomPlayer(Player):
         return self.get_random_move_scores(board)
         
 class ColumnSpammer(Player):
-    def __init__(self,*args,**kwargs):
-        super().__init__(*args,**kwargs)
-        self.randomize_column_preferences()
-        
-    def randomize_column_preferences(self):
-        self.col_preferences = list(range(7))
-        random.shuffle(self.col_preferences)
-        self.col_preferences = np.array(self.col_preferences)
-        self.col_preferences = self.col_preferences / self.col_preferences.sum()
+    def __init__(self,name=None,randomness_weight=0,col_preference=0):
+        super().__init__(name,randomness_weight)
+        self.col_preference = col_preference
         
     def get_move_scores_deterministic(self,board: np.array) -> np.array:
-        # Change preferences if at the beginning of a game
-        if board.sum() < 2:
-            self.randomize_column_preferences()
-        return np.array(self.col_preferences)
-    
-
+        n_cols = board.shape[2]
+        move_scores = np.zeros(n_cols)
+        move_scores[self.col_preference] = 1
+        return move_scores

@@ -45,14 +45,14 @@ def main():
     magnus = AIPlayer(name="Magnus")
     magnus.random_weight = 0.1
     random_bot = RandomPlayer("Random Bot")
-    opponents = [random_bot, ColumnSpammer(name="ColumnSpammer")]
+    #opponents = [random_bot, ColumnSpammer(name="ColumnSpammer")]
+    opponents = [ColumnSpammer(name="ColumnSpammer",col_preference=0)]
     self_play = False
     
     n_training_rounds = 1000
     for training_round in range(n_training_rounds):
     
-        trainee = random_bot if training_round == 0 else magnus    # Use random bot in 1st round to save time 
-        all_move_records, win_loss_ties = play_matches(trainee, opponents, n_games=10)
+        all_move_records, win_loss_ties = play_matches(magnus, opponents, n_games=50)
 
         # Print table of win/loss/tie/records
         print("Opponent\tWins\tLosses\tTies")
@@ -62,10 +62,11 @@ def main():
                 print(f"{col}\t",end='')
             print()
             
-        winning_move_records = [mr for mr in all_move_records if mr.result == 1]
+        winning_move_records = [mr for mr in all_move_records if mr.result == 1 and mr.player_name == "Magnus"]
         magnus.train_on_game_data(winning_move_records)
-        chkpt_fname = f'magnus-{training_round}.h5'
-        magnus.model.save(chkpt_fname)
+        if training_round % 100 == 0:
+            chkpt_fname = f'magnus-{training_round}.h5'
+            magnus.model.save(chkpt_fname)
         
         if self_play:
             # Add copy of self to opponent list
