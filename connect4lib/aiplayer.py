@@ -20,6 +20,7 @@ class AIPlayer(Player):
                 layers.Dense(num_classes, activation="softmax"),
             ]
         )
+        self.model.compile(loss="categorical_crossentropy", optimizer="adam", metrics=["categorical_accuracy"])
         
     def train_on_game_data(self,move_records):
         x_train = np.stack([mr.board_state for mr in move_records])
@@ -28,7 +29,7 @@ class AIPlayer(Player):
         batch_size = 128
         epochs = 1
 
-        self.model.compile(loss="categorical_crossentropy", optimizer="adam", metrics=["categorical_accuracy"])
+        
         self.model.fit(x_train, y_train, batch_size=batch_size, epochs=epochs, validation_split=0.1)
         
     def get_move_scores_deterministic(self,board: np.array) -> np.array:
