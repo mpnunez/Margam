@@ -43,10 +43,12 @@ def play_matches(trainee, opponents, n_games=100):
 def main():
     
     magnus = AIPlayer(name="Magnus")
+    magnus.random_weight = 0.1
     random_bot = RandomPlayer("Random Bot")
     opponents = [random_bot, ColumnSpammer(name="ColumnSpammer")]
+    self_play = False
     
-    n_training_rounds = 100
+    n_training_rounds = 1000
     for training_round in range(n_training_rounds):
     
         trainee = random_bot if training_round == 0 else magnus    # Use random bot in 1st round to save time 
@@ -65,10 +67,11 @@ def main():
         chkpt_fname = f'magnus-{training_round}.h5'
         magnus.model.save(chkpt_fname)
         
-        # Add copy of self to opponent list
-        magnus_clone = AIPlayer(name=f"Magnus-{training_round}",randomness_weight=0.2)
-        magnus_clone.model = load_model(chkpt_fname)
-        opponents.append(magnus_clone)
+        if self_play:
+            # Add copy of self to opponent list
+            magnus_clone = AIPlayer(name=f"Magnus-{training_round}",randomness_weight=0.2)
+            magnus_clone.model = load_model(chkpt_fname)
+            opponents.append(magnus_clone)
 
 if __name__ == "__main__":
     main()

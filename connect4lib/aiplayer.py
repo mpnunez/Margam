@@ -28,7 +28,7 @@ class AIPlayer(Player):
         batch_size = 128
         epochs = 1
 
-        self.model.compile(loss="categorical_crossentropy", optimizer="adam", metrics=["accuracy"])
+        self.model.compile(loss="categorical_crossentropy", optimizer="adam", metrics=["categorical_accuracy"])
         self.model.fit(x_train, y_train, batch_size=batch_size, epochs=epochs, validation_split=0.1)
         
     def get_move_scores_deterministic(self,board: np.array) -> np.array:
