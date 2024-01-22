@@ -20,7 +20,9 @@ class Player(ABC):
         pass
     
     def get_move_scores(self,board: np.array) -> np.array:
-        return self.random_weight * self.get_random_move_scores(board) + (1-self.random_weight)*self.get_move_scores_deterministic(board)
+        if np.random.random() < self.random_weight:
+            return self.get_random_move_scores()
+        return self.get_move_scores_deterministic(board)
     
 class HumanPlayer(Player):
     requires_user_input = True
