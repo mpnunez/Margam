@@ -43,18 +43,21 @@ def play_matches(trainee, opponents, n_games=100):
 def main():
     
     magnus = AIPlayer(name="Magnus")
-    magnus.random_weight = 0.1
+    #magnus.random_weight = 0.1
     random_bot = RandomPlayer("Random Bot")
     #opponents = [random_bot, ColumnSpammer(name="ColumnSpammer")]
     #opponents = [ColumnSpammer(name=f"ColumnSpammer-{i}",col_preference=i) for i in range(7)]
     # opponents = [ColumnSpammer(name=f"ColumnSpammer",col_preference=4)]
-    opponents = [ColumnSpammer(name=f"Random Bot")]
+    opponents = [RandomPlayer(name=f"Random Bot")]
     self_play = False
-    
+    percentile_keep = 0.3       # Train on this fraction of best games
+    SAVE_MODEL_EVERY_N_BATCHES = 100
+    GAMES_PER_TRAINING_BATCH = 100
+
     n_training_rounds = 1000
     for training_round in range(n_training_rounds):
     
-        all_move_records, win_loss_ties = play_matches(magnus, opponents, n_games=100)
+        all_move_records, win_loss_ties = play_matches(magnus, opponents, n_games=GAMES_PER_TRAINING_BATCH)
 
         # Print table of win/loss/tie/records
         print("Opponent\tWins\tLosses\tTies")
@@ -64,11 +67,15 @@ def main():
                 print(f"{col}\t",end='')
             print()
             
-        winning_move_records = [mr for mr in all_move_records if mr.result == 1 and mr.player_name == "Magnus"]
-        if len(winning_move_records) == 0:
+        agent_move_records = [mr for mr in all_move_records if mr.player_name == "Magnus"]
+        if len(agent_move_records) == 0:
             continue
-        magnus.train_on_game_data(winning_move_records)
-        if training_round % 100 == 0:
+        agent_move_records = sorted(agent_move_records)
+        records_to_train = int(len(agent_move_records)*percentile_keep)
+        move_records_for_training = [mr for mr in agent_move_records[-records_to_train:]]
+
+        magnus.train_on_game_data(move_records_for_training)
+        if training_round % SAVE_MODEL_EVERY_N_BATCHES == 0:
             chkpt_fname = f'magnus-{training_round}.h5'
             magnus.model.save(chkpt_fname)
         
