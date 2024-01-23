@@ -30,7 +30,7 @@ class AIPlayer(Player):
         x_train = x_train.swapaxes(1,2).swapaxes(2,3)
         y_train = np.stack([mr.move_scores for mr in move_records])
         batch_size = 128
-        epochs = 10
+        epochs = 1
 
         
         self.model.fit(x_train, y_train, batch_size=batch_size, epochs=epochs, validation_split=0.0)

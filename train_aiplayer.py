@@ -65,10 +65,10 @@ def main():
     self_play = False
     percentile_keep = 0.3       # Train on this fraction of best games
     SAVE_MODEL_EVERY_N_BATCHES = 100
-    GAMES_PER_TRAINING_BATCH = 10
+    GAMES_PER_TRAINING_BATCH = 100
+    N_TRAINING_BATCHES = 1000
 
-    n_training_rounds = 1        # 1000
-    for training_round in range(n_training_rounds):
+    for training_round in range(N_TRAINING_BATCHES):
     
         all_move_records, win_loss_ties = play_matches(magnus, opponents, n_games=GAMES_PER_TRAINING_BATCH)
 
@@ -88,6 +88,22 @@ def main():
         move_records_for_training = [mr for mr in agent_move_records[-records_to_train:]]
 
         magnus.train_on_game_data(move_records_for_training)
+
+        """ Debug model predictions
+        confusion_matrix = np.zeros([7,7],int)
+        x_train = np.stack([mr.board_state for mr in move_records_for_training])
+        x_train = x_train.swapaxes(1,2).swapaxes(2,3)
+        y_train = np.stack([mr.move_scores for mr in move_records_for_training])
+        y_predict = magnus.model.predict(x_train,verbose=0)
+
+        print(y_train)
+        print(y_predict)
+        for yt, yp in zip(y_train,y_predict):
+            confusion_matrix[yt.argmax(),yp.argmax()] += 1
+        print(confusion_matrix)
+        return
+        """
+
         if training_round % SAVE_MODEL_EVERY_N_BATCHES == 0:
             chkpt_fname = f'magnus-{training_round}.h5'
             magnus.model.save(chkpt_fname)
