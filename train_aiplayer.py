@@ -4,6 +4,7 @@ from connect4lib.aiplayer import AIPlayer
 from tqdm import tqdm
 import numpy as np
 from keras.models import load_model
+from multiprocessing import Pool
 
 def play_match(trainee,opponents,i):
     opponent_ind = (i//2)%len(opponents)    # Play each opponent twice in a row
@@ -29,7 +30,13 @@ def play_matches(trainee, opponents, n_games=100):
     TIE = 2
 
     print(f"Playing {n_games} games...")
-    game_results = [play_match(trainee,opponents,i) for i in tqdm(range(n_games))]
+    use_multiprocessing = False
+    
+    if use_multiprocessing:
+        with Pool(5) as p:
+            game_results = p.map(play_match, [(trainee,opponents,i) for i in range(n_games)])
+    else:
+        game_results = [play_match(trainee,opponents,i) for i in tqdm(range(n_games))]
 
     # Accumulate results
     for winner, trainee_position, opponent_ind, records in game_results:
@@ -58,9 +65,9 @@ def main():
     self_play = False
     percentile_keep = 0.3       # Train on this fraction of best games
     SAVE_MODEL_EVERY_N_BATCHES = 100
-    GAMES_PER_TRAINING_BATCH = 3    # 100
+    GAMES_PER_TRAINING_BATCH = 10
 
-    n_training_rounds = 1000
+    n_training_rounds = 1        # 1000
     for training_round in range(n_training_rounds):
     
         all_move_records, win_loss_ties = play_matches(magnus, opponents, n_games=GAMES_PER_TRAINING_BATCH)

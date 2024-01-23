@@ -37,11 +37,7 @@ class AIPlayer(Player):
         
     def get_move_scores_deterministic(self,board: np.array) -> np.array:
 
-        # pre-process board
-        board_postproc = np.array([board.copy()])
-        board_postproc = board_postproc.swapaxes(1,2).swapaxes(2,3)
-        move_scores = self.model.predict(board_postproc,verbose=0)[0]
-        
+        move_scores = self.model.predict(np.array([board.swapaxes(0,1).swapaxes(1,2)]),verbose=0)[0]
         
         return move_scores
         
