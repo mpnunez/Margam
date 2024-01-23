@@ -89,20 +89,21 @@ def main():
 
         magnus.train_on_game_data(move_records_for_training)
 
-        """ Debug model predictions
+        # Debug model predictions
         confusion_matrix = np.zeros([7,7],int)
         x_train = np.stack([mr.board_state for mr in move_records_for_training])
         x_train = x_train.swapaxes(1,2).swapaxes(2,3)
         y_train = np.stack([mr.move_scores for mr in move_records_for_training])
         y_predict = magnus.model.predict(x_train,verbose=0)
 
-        print(y_train)
-        print(y_predict)
+        #print(y_train)
+        #print(y_predict)
         for yt, yp in zip(y_train,y_predict):
             confusion_matrix[yt.argmax(),yp.argmax()] += 1
+        print("Row (move chosen in game), Column (NN predicted)")
         print(confusion_matrix)
-        return
-        """
+        
+        
 
         if training_round % SAVE_MODEL_EVERY_N_BATCHES == 0:
             chkpt_fname = f'magnus-{training_round}.h5'

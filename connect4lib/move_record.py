@@ -17,6 +17,6 @@ class MoveRecord:
     move_scores: np.ndarray = np.zeros(7)
 
     def __lt__(self,other):
-        self_score = (2*self.result-1) / (1+self.game_length-self.move_ind)
-        other_score = (2*other.result-1) / (1+other.game_length-other.move_ind)
+        self_score = (self.result, self.move_ind-self.game_length, 1 / (1+self.game_length))
+        other_score = (other.result, other.move_ind-other.game_length, 1 / (1+self.game_length))
         return self_score < other_score
