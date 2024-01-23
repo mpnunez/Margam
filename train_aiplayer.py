@@ -46,13 +46,15 @@ def main():
     magnus.random_weight = 0.1
     random_bot = RandomPlayer("Random Bot")
     #opponents = [random_bot, ColumnSpammer(name="ColumnSpammer")]
-    opponents = [ColumnSpammer(name="ColumnSpammer",col_preference=0)]
+    #opponents = [ColumnSpammer(name=f"ColumnSpammer-{i}",col_preference=i) for i in range(7)]
+    # opponents = [ColumnSpammer(name=f"ColumnSpammer",col_preference=4)]
+    opponents = [ColumnSpammer(name=f"Random Bot")]
     self_play = False
     
     n_training_rounds = 1000
     for training_round in range(n_training_rounds):
     
-        all_move_records, win_loss_ties = play_matches(magnus, opponents, n_games=50)
+        all_move_records, win_loss_ties = play_matches(magnus, opponents, n_games=100)
 
         # Print table of win/loss/tie/records
         print("Opponent\tWins\tLosses\tTies")
@@ -63,6 +65,8 @@ def main():
             print()
             
         winning_move_records = [mr for mr in all_move_records if mr.result == 1 and mr.player_name == "Magnus"]
+        if len(winning_move_records) == 0:
+            continue
         magnus.train_on_game_data(winning_move_records)
         if training_round % 100 == 0:
             chkpt_fname = f'magnus-{training_round}.h5'

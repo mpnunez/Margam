@@ -14,9 +14,10 @@ class AIPlayer(Player):
         self.model = keras.Sequential(
             [
                 keras.Input(shape=input_shape),
-                layers.Conv2D(64, 4),
+                layers.Conv2D(128, 4),
                 layers.Flatten(),
-                layers.Dense(50, activation="relu"),
+                layers.Dense(64, activation="relu"),
+                layers.Dense(64, activation="relu"),
                 layers.Dense(num_classes, activation="softmax"),
             ]
         )
@@ -30,7 +31,7 @@ class AIPlayer(Player):
         epochs = 1
 
         
-        self.model.fit(x_train, y_train, batch_size=batch_size, epochs=epochs, validation_split=0.1)
+        self.model.fit(x_train, y_train, batch_size=batch_size, epochs=epochs, validation_split=0.0)
         
     def get_move_scores_deterministic(self,board: np.array) -> np.array:
 
