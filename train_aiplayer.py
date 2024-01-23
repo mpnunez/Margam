@@ -5,28 +5,34 @@ from tqdm import tqdm
 import numpy as np
 from keras.models import load_model
 
+def play_match(trainee,opponents,i):
+    opponent_ind = (i//2)%len(opponents)    # Play each opponent twice in a row
+    opponent = opponents[opponent_ind]
+    trainee_position = i%2
+    opponent_position = (trainee_position+1)%2
+    
+    g = Game()
+    g.players = [None,None]
+    g.players[trainee_position] = trainee        # Alternate being player 1/2
+    g.players[opponent_position] = opponent   
+    
+    
+    winner, records = g.play_game()
+
+    return winner, trainee_position, opponent_ind, records
+
 def play_matches(trainee, opponents, n_games=100):
     all_move_records = []
     trainee_wlt_record = np.zeros([len(opponents),3],dtype=int)
     WIN = 0
     LOSS = 1
     TIE = 2
-    
-    for i in tqdm(range(n_games)):
-        #print(f"{i}/{n_training_games}")
-        
-        opponent_ind = (i//2)%len(opponents)    # Play each opponent twice in a row
-        opponent = opponents[opponent_ind]
-        trainee_position = i%2
-        opponent_position = (trainee_position+1)%2
-        
-        g = Game()
-        g.players = [None,None]
-        g.players[trainee_position] = trainee        # Alternate being player 1/2
-        g.players[opponent_position] = opponent   
-        
-        
-        winner, records = g.play_game()
+
+    print(f"Playing {n_games} games...")
+    game_results = [play_match(trainee,opponents,i) for i in tqdm(range(n_games))]
+
+    # Accumulate results
+    for winner, trainee_position, opponent_ind, records in game_results:
         all_move_records += records
         
         if winner == -1:
@@ -52,7 +58,7 @@ def main():
     self_play = False
     percentile_keep = 0.3       # Train on this fraction of best games
     SAVE_MODEL_EVERY_N_BATCHES = 100
-    GAMES_PER_TRAINING_BATCH = 100
+    GAMES_PER_TRAINING_BATCH = 3    # 100
 
     n_training_rounds = 1000
     for training_round in range(n_training_rounds):
