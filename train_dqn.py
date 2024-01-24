@@ -1,6 +1,6 @@
 from connect4lib.game import Game
 from connect4lib.player import RandomPlayer, ColumnSpammer
-from connect4lib.aiplayer import AIPlayer
+from connect4lib.dqn_player import DQNPlayer
 from tqdm import tqdm
 import numpy as np
 from keras.models import load_model
@@ -55,19 +55,19 @@ def play_matches(trainee, opponents, n_games=100):
 
 def main():
     
-    magnus = AIPlayer(name="Magnus")
+    magnus = DQNPlayer(name="Magnus")
     #magnus.random_weight = 0.2
     random_bot = RandomPlayer("Random Bot")
     #opponents = [random_bot, ColumnSpammer(name="ColumnSpammer")]
-    opponents = [ColumnSpammer(name=f"ColumnSpammer-{i}",col_preference=i) for i in range(7)]
-    opponents += [RandomPlayer(f"RandomBot_{i}") for i in range(7)]
+    #opponents = [ColumnSpammer(name=f"ColumnSpammer-{i}",col_preference=i) for i in range(7)]
+    #opponents += [RandomPlayer(f"RandomBot_{i}") for i in range(7)]
     #opponents = [ColumnSpammer(name=f"ColumnSpammer",col_preference=4)]
-    #opponents = [RandomPlayer(name=f"Random Bot")]
+    opponents = [RandomPlayer(name=f"Random Bot")]
     self_play = False
     percentile_keep = 0.3       # Train on this fraction of best games
     SAVE_MODEL_EVERY_N_BATCHES = 100
     #GAMES_PER_TRAINING_BATCH = 100
-    GAMES_PER_TRAINING_BATCH = 100
+    GAMES_PER_TRAINING_BATCH = 10
     N_TRAINING_BATCHES = 1000
 
     for training_round in range(N_TRAINING_BATCHES):
@@ -83,39 +83,10 @@ def main():
             print()
             
         agent_move_records = [mr for mr in all_move_records if mr.player_name == "Magnus"]
-        if len(agent_move_records) == 0:
-            continue
-        agent_move_records = sorted(agent_move_records)
-        records_to_train = int(len(agent_move_records)*percentile_keep)
-        move_records_for_training = [mr for mr in agent_move_records[-records_to_train:]]
+        y_train = np.stack([mr.move_scores for mr in agent_move_records])
+        print(np.sum(y_train,axis=0))
 
-        magnus.train_on_game_data(move_records_for_training)
-
-        # Debug model predictions
-        confusion_matrix = np.zeros([7,7],int)
-        x_train = np.stack([mr.board_state for mr in move_records_for_training])
-        x_train = x_train.swapaxes(1,2).swapaxes(2,3)
-        y_train = np.stack([mr.move_scores for mr in move_records_for_training])
-        y_predict = magnus.model.predict(x_train,verbose=0)
-
-        #print(y_train)
-        #print(y_predict)
-        for yt, yp in zip(y_train,y_predict):
-            confusion_matrix[yt.argmax(),yp.argmax()] += 1
-        print("Row (move chosen in game), Column (NN predicted)")
-        print(confusion_matrix)
-        
-        
-
-        if training_round % SAVE_MODEL_EVERY_N_BATCHES == 0:
-            chkpt_fname = f'magnus-{training_round}.h5'
-            magnus.model.save(chkpt_fname)
-        
-        if self_play:
-            # Add copy of self to opponent list
-            magnus_clone = AIPlayer(name=f"Magnus-{training_round}",randomness_weight=0.2)
-            magnus_clone.model = load_model(chkpt_fname)
-            opponents.append(magnus_clone)
+        return
 
 if __name__ == "__main__":
     main()
