@@ -56,15 +56,17 @@ def play_matches(trainee, opponents, n_games=100):
 def main():
     
     magnus = AIPlayer(name="Magnus")
-    #magnus.random_weight = 0.1
+    #magnus.random_weight = 0.2
     random_bot = RandomPlayer("Random Bot")
     #opponents = [random_bot, ColumnSpammer(name="ColumnSpammer")]
-    #opponents = [ColumnSpammer(name=f"ColumnSpammer-{i}",col_preference=i) for i in range(7)]
-    # opponents = [ColumnSpammer(name=f"ColumnSpammer",col_preference=4)]
-    opponents = [RandomPlayer(name=f"Random Bot")]
+    opponents = [ColumnSpammer(name=f"ColumnSpammer-{i}",col_preference=i) for i in range(7)]
+    opponents += [RandomPlayer(f"RandomBot_{i}") for i in range(7)]
+    #opponents = [ColumnSpammer(name=f"ColumnSpammer",col_preference=4)]
+    #opponents = [RandomPlayer(name=f"Random Bot")]
     self_play = False
     percentile_keep = 0.3       # Train on this fraction of best games
     SAVE_MODEL_EVERY_N_BATCHES = 100
+    #GAMES_PER_TRAINING_BATCH = 100
     GAMES_PER_TRAINING_BATCH = 100
     N_TRAINING_BATCHES = 1000
 
