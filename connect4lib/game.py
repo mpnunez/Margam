@@ -15,7 +15,7 @@ class Game:
         self.nconnectwins = nconnectwins
         self.nplayers = 2
         self.board = np.zeros([self.nplayers,self.nrows,self.ncols])
-        self.current_player = 0
+        self.current_player_ind = 0
         self.players = []
         self.status = GameStatus.NOTSTARTED
         self.game_data = []
@@ -93,12 +93,7 @@ class Game:
         Return True if there are 4 1's in a row in the first channel
         """
         
-        someone_won = self.check_horizontal_win(player) or self.check_vertical_win(player) or self.check_diagonal_ll_ur_win(player) or self.check_diagonal_ul_lr_win(player)
-        if someone_won:
-            self.winner = player
-            self.status = GameStatus.COMPLETE
-            
-        return someone_won
+        return self.check_horizontal_win(player) or self.check_vertical_win(player) or self.check_diagonal_ll_ur_win(player) or self.check_diagonal_ul_lr_win(player)
     
     def drop_in_slot(self,player: int, col: int):
         row_to_drop = self.nrows-1
@@ -111,11 +106,11 @@ class Game:
         raise Connect4Exception(f"No empty slot in column {col}")
     
     def show_board(self):
-        display_board = self.board[0,:,:] + 2 * self.board[1,:,:]
+        display_board = sum((i+1)*self.board[i,:,:] for i in range(len(self.board)))
         print(display_board)
         print()
         
-    def get_valid_invalid_moves(self):
+    def get_legal_illegal_moves(self):
         return [i for i in range(self.ncols) if np.sum(self.board[:,0,i]) == 0], [i for i in range(self.ncols) if np.sum(self.board[:,0,i]) > 0]
 
     def get_player_move(self,player,board_player_pov):
@@ -129,9 +124,9 @@ class Game:
         scored_moves = sorted(scored_moves)
         
         # Get the valid move with the highest player score
-        valid_moves, _ = self.get_valid_invalid_moves()
+        legal_moves, _ = self.get_legal_illegal_moves()
         for _, col in scored_moves:
-            if col in valid_moves:
+            if col in legal_moves:
                 actual_move = col
                 break
             
@@ -145,29 +140,14 @@ class Game:
         self.status = GameStatus.INPROGRESS
     
     def get_next_player_move(self):
-        if self.verbose:
-            self.show_board()
-        
-        player = self.players[self.current_player]
-        
-        legal_moves, illegal_moves = self.get_valid_invalid_moves()
-        if len(legal_moves) == 0:
-            self.status = GameStatus.COMPLETE
-            return
-            
-        board_player_pov = self.board if self.current_player == 0 else self.board[::-1,:,:]
+        player = self.players[self.current_player_ind]
+        board_player_pov = np.roll(self.board,-self.current_player_ind,axis=0)
         player_move = self.get_player_move(player,board_player_pov)
 
         move_record = MoveRecord(
-            board_state = board_player_pov.copy(),
-            legal_moves = legal_moves,
-            illegal_moves = illegal_moves,
+            board_state = board_player_pov,
             selected_move = player_move,
-            move_ind = self.move_ind,
-            player_name = player.name,
             )
-        move_record.move_scores = np.zeros(7)
-        move_record.move_scores[player_move] = 1
         self.game_data.append(move_record)
 
         return player_move
@@ -176,14 +156,22 @@ class Game:
     def move_next_player_with(self,player_move):
 
         
-        self.drop_in_slot(self.current_player,player_move)
-        self.check_win(self.current_player)
+        self.drop_in_slot(self.current_player_ind,player_move)
+        player_won = self.check_win(self.current_player_ind)
+        if len(self.game_data) >= 2:
+            self.game_data[-2].resulting_state = self.board.copy()
+        if player_won:
+            self.game_data[-1].reward = 1
+            self.winner = self.current_player_ind
+            self.status = GameStatus.COMPLETE
         if self.status == GameStatus.INPROGRESS:
             self.move_ind += 1
-            self.current_player = self.move_ind % len(self.players)
+            self.current_player_ind = self.move_ind % len(self.players)
 
 
     def next_player_make_move(self):
+        if self.verbose:
+            self.show_board()
         next_move = self.get_next_player_move()
         self.move_next_player_with(next_move)
     
@@ -196,12 +184,7 @@ class Game:
         self.finish_game()
         return self.winner, self.game_data
                 
-    def finish_game(self):        
-        
-        for ind, mr in enumerate(self.game_data):
-            mr.game_length = self.move_ind
-            mr.result = 0.5 if self.winner == -1 else int(ind % self.nplayers == self.winner)
-        
+    def finish_game(self):
         if self.verbose:
             self.show_board()
             if self.winner == -1:

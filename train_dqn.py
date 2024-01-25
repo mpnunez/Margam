@@ -4,53 +4,40 @@ from connect4lib.dqn_player import DQNPlayer
 from tqdm import tqdm
 import numpy as np
 from keras.models import load_model
-from multiprocessing import Pool
+from collections import Counter
+from enum import Enum
+import itertools
 
-def play_match(trainee,opponents,i):
+def play_match(agent,opponents,i):
     opponent_ind = (i//2)%len(opponents)    # Play each opponent twice in a row
     opponent = opponents[opponent_ind]
-    trainee_position = i%2
-    opponent_position = (trainee_position+1)%2
+    agent_position = i%2
+    opponent_position = (agent_position+1)%2
     
     g = Game()
     g.players = [None,None]
-    g.players[trainee_position] = trainee        # Alternate being player 1/2
+    g.players[agent_position] = agent        # Alternate being player 1/2
     g.players[opponent_position] = opponent   
     
     
     winner, records = g.play_game()
+    agent_records = records[agent_position::len(g.players)]
 
-    return winner, trainee_position, opponent_ind, records
+    return agent_records, agent_records[-1].reward, opponent_ind
 
-def play_matches(trainee, opponents, n_games=100):
-    all_move_records = []
-    trainee_wlt_record = np.zeros([len(opponents),3],dtype=int)
-    WIN = 0
-    LOSS = 1
-    TIE = 2
-
-    print(f"Playing {n_games} games...")
-    use_multiprocessing = False
+def play_matches(agent, opponents, n_games=100):
+    agent_move_records = []
+    agent_wlt_record = np.zeros([len(opponents),3],dtype=int)
     
-    if use_multiprocessing:
-        with Pool(5) as p:
-            game_results = p.map(play_match, [(trainee,opponents,i) for i in range(n_games)])
-    else:
-        game_results = [play_match(trainee,opponents,i) for i in tqdm(range(n_games))]
+    print(f"Playing {n_games} games...")
+    game_results = (play_match(agent,opponents,i) for i in tqdm(range(n_games)))
 
-    # Accumulate results
-    for winner, trainee_position, opponent_ind, records in game_results:
-        all_move_records += records
-        
-        if winner == -1:
-            trainee_wlt_record[opponent_ind,TIE] += 1
-        elif winner == trainee_position:
-            trainee_wlt_record[opponent_ind,WIN] += 1
-        else:
-            trainee_wlt_record[opponent_ind,LOSS] += 1
+    for agent_records, agent_reward, opponent_ind in game_results:
+        agent_move_records += agent_records
+        reward_to_table_ind = {1: 0, 0: 1, 0.5: 2}  # win / loss / tie
+        agent_wlt_record[opponent_ind,reward_to_table_ind[agent_reward]] += 1
 
-        
-    return all_move_records, trainee_wlt_record
+    return agent_move_records, agent_wlt_record
         
 
 def main():
@@ -72,7 +59,7 @@ def main():
 
     for training_round in range(N_TRAINING_BATCHES):
     
-        all_move_records, win_loss_ties = play_matches(magnus, opponents, n_games=GAMES_PER_TRAINING_BATCH)
+        agent_move_records, win_loss_ties = play_matches(magnus, opponents, n_games=GAMES_PER_TRAINING_BATCH)
 
         # Print table of win/loss/tie/records
         print("Opponent\tWins\tLosses\tTies")
@@ -82,9 +69,11 @@ def main():
                 print(f"{col}\t",end='')
             print()
             
-        agent_move_records = [mr for mr in all_move_records if mr.player_name == "Magnus"]
-        y_train = np.stack([mr.move_scores for mr in agent_move_records])
-        print(np.sum(y_train,axis=0))
+        # View distribution of agent moves
+        selected_moves = [mr.selected_move for mr in agent_move_records]
+        move_counts = [selected_moves.count(i) for i in range(7)]
+        print(move_counts)
+
 
         return
 

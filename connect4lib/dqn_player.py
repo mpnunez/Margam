@@ -4,6 +4,23 @@ import numpy as np
 from tensorflow import keras
 from tensorflow.keras import layers
 
+import copy
+
+def encode_position_action(board,col):
+    """
+    If move is legal, return the resulting board. Return None
+    for illegal moves.
+    """
+    n_rows = board.shape[1]
+    for r in range(n_rows):
+        row_to_try = n_rows-r-1
+        if np.sum(board[:,row_to_try,col])>0:
+            continue
+
+        newboard = board.copy()
+        newboard[0,row_to_try,col] = 1
+        return newboard
+
 class DQNPlayer(Player):
     
     def __init__(self,*args,**kwargs):
@@ -23,6 +40,7 @@ class DQNPlayer(Player):
         self.model.compile(loss="mse",
             optimizer= keras.optimizers.Adam(learning_rate=1e-2),
             metrics=["mse"])
+        self.target_network = copy.deepcopy(self.model) # for training
         
     def train_on_game_data(self,move_records):
         x_train = np.stack([mr.board_state for mr in move_records])
@@ -33,24 +51,10 @@ class DQNPlayer(Player):
 
         self.model.fit(x_train, y_train, batch_size=batch_size, epochs=epochs, validation_split=0.1)
         
-    def get_possible_next_positions(self,board) -> dict:
-        """
-        Return the boards that would result from 
-        """
-        next_positions = {}
-        for col in range(7):
-            for r in range(6):
-                if np.sum(board[:,5-r,col])==0:
-                    newboard = board.copy()
-                    newboard[0,5-r,col] = 1
-                    next_positions[col] = newboard
-                    break
-
-        return next_positions
-
-
+    
     def get_move_scores_deterministic(self,board: np.array) -> np.array:
-        next_positions = self.get_possible_next_positions(board)
+        next_positions = [encode_position_action(board,col) for col in range(board.shape[2])]
+        next_positions = {col: val for col, val in enumerate(next_positions) if val is not None}
         to_eval = np.array(list(next_positions.values()))
         q_values = self.model.predict(to_eval.swapaxes(1,2).swapaxes(2,3),verbose=0)
         move_scores = np.zeros(7)
