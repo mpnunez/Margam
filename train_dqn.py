@@ -99,6 +99,7 @@ def main():
         # Make X and Y
         x_train = np.array([mr.board_state for mr in training_data])
         x_train = x_train.swapaxes(1,2).swapaxes(2,3)
+        x_train = tf.constant(x_train)
 
         # Bellman equation part
         # Take maximum Q(s',a') of board states we end up in
@@ -108,12 +109,12 @@ def main():
         max_qs = np.max(resulting_board_q,axis=1)
         rewards = np.array([mr.reward for mr in training_data])
         q_to_train = rewards + GAMMA * np.multiply(non_terminal_states,max_qs)
-        #print(q_to_train)
 
         # Needed for our mask
         selected_moves = [mr.selected_move for mr in training_data]
         selected_move_mask = one_hot(selected_moves, NCOLS)
         q_to_train_mat = q_to_train[:,np.newaxis]*selected_move_mask
+        q_to_train_mat = tf.constant(q_to_train_mat)
         
         def cost_function(y_true,y_pred):
             """
@@ -124,10 +125,6 @@ def main():
             t_pred_masked = tf.math.multiply(y_pred,selected_move_mask)
             mse = MeanSquaredError()
             return mse(y_true,t_pred_masked)
-            
-        # Test cost function
-        q_predicted = agent.model.predict_on_batch(x_train)
-        cost = cost_function(q_to_train_mat,q_predicted)
 
         agent.model.compile(loss=cost_function,
             optimizer= Adam(learning_rate=LEARNING_RATE))
