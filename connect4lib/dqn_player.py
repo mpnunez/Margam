@@ -22,9 +22,8 @@ class DQNPlayer(Player):
                 layers.Dense(7, activation="linear",bias_initializer=keras.initializers.RandomNormal(mean=0.5, stddev=0.01, seed=None)),
             ]
         )
-        self.model.compile(loss="mse",
-            optimizer= keras.optimizers.Adam(learning_rate=1e-2),
-            metrics=["mse"])
+        
+
         #self.target_network = copy.deepcopy(self.model) # for training
 
     

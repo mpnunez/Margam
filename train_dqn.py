@@ -54,16 +54,7 @@ def sample_experience_buffer(buffer,batch_size):
     indices = np.random.choice(len(buffer), batch_size, replace=False)
     return [buffer[idx] for idx in indices]
         
-@tf.function
-def cost_function(y_true,y_pred,selected_move_mask):
-    """
-    Define custom cost function so we can mask the
-    predicted Q-values for moves that were actually
-    played in the game
-    """
-    t_pred_masked = tf.math.multiply(y_pred,selected_move_mask)
-    mse = MeanSquaredError()
-    return mse(y_true,t_pred_masked)
+
 
 def main():
     
@@ -91,6 +82,10 @@ def main():
     experience_buffer = deque(maxlen=REPLAY_SIZE)
     reward_buffer = deque(maxlen=REWARD_BUFFER_SIZE)
 
+    agent.model.compile(
+        loss=MeanSquaredError(),
+        optimizer= Adam(learning_rate=LEARNING_RATE))
+
     for transition in generate_transitions(agent, opponents):
         experience_buffer.append(transition)
 
@@ -110,7 +105,6 @@ def main():
         # Make X and Y
         x_train = np.array([mr.board_state for mr in training_data])
         x_train = x_train.swapaxes(1,2).swapaxes(2,3)
-        x_train = tf.constant(x_train)
 
         # Bellman equation part
         # Take maximum Q(s',a') of board states we end up in
@@ -125,11 +119,15 @@ def main():
         selected_moves = [mr.selected_move for mr in training_data]
         selected_move_mask = one_hot(selected_moves, NCOLS)
         q_to_train_mat = q_to_train[:,np.newaxis]*selected_move_mask
-        q_to_train_mat = tf.constant(q_to_train_mat)
 
-        #agent.model.compile(
-        #    loss=partial(cost_function,selected_move_mask=selected_move_mask),
-        #    optimizer= Adam(learning_rate=LEARNING_RATE))
+        # Hack to mask q-values for unselected moves
+        # Set training value equal to predicted value
+        # Loss and gradient will be zero for MSE
+        unselected_move_mask = np.ones(selected_move_mask.shape) - selected_move_mask
+        q_predicted = agent.model.predict_on_batch(x_train)
+        q_to_train_mat = q_to_train_mat*selected_move_mask + q_predicted*unselected_move_mask
+
+        # Step the gradients
         agent.model.train_on_batch(x_train,q_to_train_mat)
 
 
