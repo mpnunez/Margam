@@ -8,6 +8,7 @@ from collections import Counter
 from enum import Enum
 import itertools
 from collections import deque
+from functools import partial
 
 import tensorflow as tf
 from tensorflow import one_hot
@@ -53,6 +54,16 @@ def sample_experience_buffer(buffer,batch_size):
     indices = np.random.choice(len(buffer), batch_size, replace=False)
     return [buffer[idx] for idx in indices]
         
+@tf.function
+def cost_function(y_true,y_pred,selected_move_mask):
+    """
+    Define custom cost function so we can mask the
+    predicted Q-values for moves that were actually
+    played in the game
+    """
+    t_pred_masked = tf.math.multiply(y_pred,selected_move_mask)
+    mse = MeanSquaredError()
+    return mse(y_true,t_pred_masked)
 
 def main():
     
@@ -116,18 +127,11 @@ def main():
         q_to_train_mat = q_to_train[:,np.newaxis]*selected_move_mask
         q_to_train_mat = tf.constant(q_to_train_mat)
         
-        def cost_function(y_true,y_pred):
-            """
-            Define custom cost function so we can mask the
-            predicted Q-values for moves that were actually
-            played in the game
-            """
-            t_pred_masked = tf.math.multiply(y_pred,selected_move_mask)
-            mse = MeanSquaredError()
-            return mse(y_true,t_pred_masked)
+        
 
-        agent.model.compile(loss=cost_function,
-            optimizer= Adam(learning_rate=LEARNING_RATE))
+        #agent.model.compile(
+        #    loss=partial(cost_function,selected_move_mask=selected_move_mask),
+        #    optimizer= Adam(learning_rate=LEARNING_RATE))
         agent.model.train_on_batch(x_train,q_to_train_mat)
 
 
