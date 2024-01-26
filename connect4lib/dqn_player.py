@@ -19,7 +19,7 @@ class DQNPlayer(Player):
                 layers.Flatten(),
                 layers.Dense(64, activation="relu"),
                 layers.Dense(64, activation="relu"),
-                layers.Dense(7, activation="linear"),
+                layers.Dense(7, activation="linear",bias_initializer=keras.initializers.RandomNormal(mean=0.5, stddev=0.01, seed=None)),
             ]
         )
         self.model.compile(loss="mse",

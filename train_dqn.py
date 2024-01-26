@@ -126,8 +126,6 @@ def main():
         selected_move_mask = one_hot(selected_moves, NCOLS)
         q_to_train_mat = q_to_train[:,np.newaxis]*selected_move_mask
         q_to_train_mat = tf.constant(q_to_train_mat)
-        
-        
 
         #agent.model.compile(
         #    loss=partial(cost_function,selected_move_mask=selected_move_mask),
