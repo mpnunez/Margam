@@ -158,12 +158,17 @@ class Game:
         
         self.drop_in_slot(self.current_player_ind,player_move)
         player_won = self.check_win(self.current_player_ind)
-        if len(self.game_data) >= 2 and not player_won:
+        player_tie = self.board.sum() == self.board.shape[1]*self.board.shape[2]
+        game_over = player_won or player_tie
+        self.status = GameStatus.COMPLETE if game_over else self.status
+        if len(self.game_data) >= 2 and not game_over:
             self.game_data[-2].resulting_state = self.board.copy()
         if player_won:
             self.game_data[-1].reward = 1
             self.winner = self.current_player_ind
-            self.status = GameStatus.COMPLETE
+        if player_tie:
+            self.game_data[-1].reward = 0.5
+            self.game_data[-2].reward = 0.5
         if self.status == GameStatus.INPROGRESS:
             self.move_ind += 1
             self.current_player_ind = self.move_ind % len(self.players)
