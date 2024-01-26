@@ -158,7 +158,7 @@ class Game:
         
         self.drop_in_slot(self.current_player_ind,player_move)
         player_won = self.check_win(self.current_player_ind)
-        if len(self.game_data) >= 2:
+        if len(self.game_data) >= 2 and not player_won:
             self.game_data[-2].resulting_state = self.board.copy()
         if player_won:
             self.game_data[-1].reward = 1
