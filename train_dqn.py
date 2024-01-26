@@ -62,15 +62,28 @@ def main():
     LEARNING_RATE = 1e-4
     SYNC_TARGET_NETWORK = 1000
     REPLAY_START_SIZE = 10000
+    REWARD_BUFFER_SIZE = 100
 
     # For debugging
     REPLAY_START_SIZE = 20
     BATCH_SIZE = REPLAY_START_SIZE
 
     experience_buffer = deque(maxlen=REPLAY_SIZE)
+    reward_buffer = deque(maxlen=REWARD_BUFFER_SIZE)
+
     for transition in generate_transitions(agent, opponents):
         experience_buffer.append(transition)
+        #print(transition)
+        #if len(experience_buffer) == 20:
+        #    break
 
+        # Compute average reward
+        if transition.resulting_state is None:
+            reward_buffer.append(transition.reward)
+            smoothed_reward = sum(reward_buffer) / len(reward_buffer)
+            print(f"Average reward (last {len(reward_buffer)} games): {smoothed_reward}")
+
+        continue
         if len(experience_buffer) < REPLAY_START_SIZE:
             continue
 
@@ -88,7 +101,7 @@ def main():
         max_qs = np.max(resulting_board_q,axis=1)
         rewards = np.array([mr.reward for mr in training_data])
         q_to_train = rewards + GAMMA * np.multiply(non_terminal_states,max_qs)
-        print(q_to_train)
+        #print(q_to_train)
 
         # Needed for our mask
         y = [mr.selected_move for mr in training_data]
