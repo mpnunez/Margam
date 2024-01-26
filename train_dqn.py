@@ -63,8 +63,8 @@ def main():
     NCONNECT = 4
 
     agent = DQNPlayer(name="Magnus")
-    #opponents = [RandomPlayer(name=f"RandomBot")]
-    opponents = [ColumnSpammer(name=f"CS")]
+    opponents = [RandomPlayer(name=f"RandomBot") for i in range(7)]
+    opponents += [ColumnSpammer(name=f"CS",col_preference=i) for i in range(7)]
 
     # DQN hyperparameters
     SAVE_MODEL_EVERY_N_TRANSITIONS = 100
