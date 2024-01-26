@@ -72,7 +72,7 @@ def main():
     BATCH_SIZE = 32             
     REPLAY_SIZE = 1000
     LEARNING_RATE = 1e-3
-    SYNC_TARGET_NETWORK = 100
+    SYNC_TARGET_NETWORK = 1000
     REPLAY_START_SIZE = 1000
     REWARD_BUFFER_SIZE = 100
 
@@ -102,6 +102,7 @@ def main():
         if transition.resulting_state is None:
             reward_buffer.append(transition.reward)
             smoothed_reward = sum(reward_buffer) / len(reward_buffer)
+            print(f"\nSteps: {frame_idx}")
             print(f"Average reward (last {len(reward_buffer)} games): {smoothed_reward}")
             move_distribution = [mr.selected_move for mr in experience_buffer]
             move_distribution = np.array([move_distribution.count(i) for i in range(7)])
