@@ -76,7 +76,7 @@ def main():
     REPLAY_START_SIZE = 1000
     REWARD_BUFFER_SIZE = 100
 
-    EPSILON_DECAY_LAST_FRAME = 10**3
+    EPSILON_DECAY_LAST_FRAME = 10**4
     EPSILON_START = 1.0
     EPSILON_FINAL = 0.02
 
@@ -103,6 +103,11 @@ def main():
             reward_buffer.append(transition.reward)
             smoothed_reward = sum(reward_buffer) / len(reward_buffer)
             print(f"Average reward (last {len(reward_buffer)} games): {smoothed_reward}")
+            move_distribution = [mr.selected_move for mr in experience_buffer]
+            move_distribution = np.array([move_distribution.count(i) for i in range(7)])
+            move_distribution = move_distribution / move_distribution.sum()
+            print(f"Epsilon: {agent.random_weight}")
+            print(f"Move distribution: {move_distribution}")
 
         # Don't start training the network until we have enough data
         if len(experience_buffer) < REPLAY_START_SIZE:
