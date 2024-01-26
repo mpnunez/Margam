@@ -9,6 +9,11 @@ from enum import Enum
 import itertools
 from collections import deque
 
+import tensorflow as tf
+from tensorflow import one_hot
+from tensorflow.keras.losses import MeanSquaredError
+from tensorflow.keras.optimizers import Adam
+
 def play_match(agent,opponents,i):
     """
     Play a single game and return
@@ -51,6 +56,10 @@ def sample_experience_buffer(buffer,batch_size):
 
 def main():
     
+    NROWS = 6
+    NCOLS = 7
+    NCONNECT = 4
+
     agent = DQNPlayer(name="Magnus")
     opponents = [RandomPlayer(name=f"RandomBot")]
 
@@ -59,7 +68,7 @@ def main():
     GAMMA = 0.99
     BATCH_SIZE = 32             
     REPLAY_SIZE = 10000
-    LEARNING_RATE = 1e-4
+    LEARNING_RATE = 1e-3
     SYNC_TARGET_NETWORK = 1000
     REPLAY_START_SIZE = 10000
     REWARD_BUFFER_SIZE = 100
@@ -73,9 +82,7 @@ def main():
 
     for transition in generate_transitions(agent, opponents):
         experience_buffer.append(transition)
-        #print(transition)
-        #if len(experience_buffer) == 20:
-        #    break
+
 
         # Compute average reward
         if transition.resulting_state is None:
@@ -83,15 +90,15 @@ def main():
             smoothed_reward = sum(reward_buffer) / len(reward_buffer)
             print(f"Average reward (last {len(reward_buffer)} games): {smoothed_reward}")
 
-        continue
+        # Don't start training the network until we have enough data
         if len(experience_buffer) < REPLAY_START_SIZE:
             continue
 
         training_data = sample_experience_buffer(experience_buffer,BATCH_SIZE)
-        print(training_data[0])
 
         # Make X and Y
-        X = np.array([mr.board_state for mr in training_data])
+        x_train = np.array([mr.board_state for mr in training_data])
+        x_train = x_train.swapaxes(1,2).swapaxes(2,3)
 
         # Bellman equation part
         # Take maximum Q(s',a') of board states we end up in
@@ -104,10 +111,27 @@ def main():
         #print(q_to_train)
 
         # Needed for our mask
-        y = [mr.selected_move for mr in training_data]
-        #print(y)
+        selected_moves = [mr.selected_move for mr in training_data]
+        selected_move_mask = one_hot(selected_moves, NCOLS)
+        q_to_train_mat = q_to_train[:,np.newaxis]*selected_move_mask
+        
+        def cost_function(y_true,y_pred):
+            """
+            Define custom cost function so we can mask the
+            predicted Q-values for moves that were actually
+            played in the game
+            """
+            t_pred_masked = tf.math.multiply(y_pred,selected_move_mask)
+            mse = MeanSquaredError()
+            return mse(y_true,t_pred_masked)
+            
+        # Test cost function
+        q_predicted = agent.model.predict_on_batch(x_train)
+        cost = cost_function(q_to_train_mat,q_predicted)
 
-        break
+        agent.model.compile(loss=cost_function,
+            optimizer= Adam(learning_rate=LEARNING_RATE))
+        agent.model.train_on_batch(x_train,q_to_train_mat)
 
 
 if __name__ == "__main__":

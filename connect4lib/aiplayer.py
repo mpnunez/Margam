@@ -36,7 +36,7 @@ class AIPlayer(Player):
         self.model.fit(x_train, y_train, batch_size=batch_size, epochs=epochs, validation_split=0.1)
         
     def get_move_scores_deterministic(self,board: np.array) -> np.array:
-
+        # use predict_on_batch instead
         move_scores = self.model.predict(np.array([board.swapaxes(0,1).swapaxes(1,2)]),verbose=0)[0]
         
         return move_scores
