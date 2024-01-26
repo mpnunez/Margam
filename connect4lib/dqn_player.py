@@ -34,7 +34,7 @@ class DQNPlayer(Player):
                 layers.Flatten(),
                 layers.Dense(64, activation="relu"),
                 layers.Dense(64, activation="relu"),
-                layers.Dense(1, activation="sigmoid"),
+                layers.Dense(7, activation="linear"),
             ]
         )
         self.model.compile(loss="mse",
@@ -53,13 +53,5 @@ class DQNPlayer(Player):
         
     
     def get_move_scores_deterministic(self,board: np.array) -> np.array:
-        next_positions = [encode_position_action(board,col) for col in range(board.shape[2])]
-        next_positions = {col: val for col, val in enumerate(next_positions) if val is not None}
-        to_eval = np.array(list(next_positions.values()))
-        q_values = self.model.predict(to_eval.swapaxes(1,2).swapaxes(2,3),verbose=0)
-        move_scores = np.zeros(7)
-        for col, q_value in zip(next_positions.keys(),q_values):
-            move_scores[col] = q_value
+        move_scores = self.model.predict(to_eval.swapaxes(1,2).swapaxes(2,3),verbose=0)
         return move_scores
-        
-        

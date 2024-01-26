@@ -43,6 +43,10 @@ def generate_transitions(agent, opponents):
         i += 1
 
     return agent_move_records, agent_wlt_record
+
+def sample_experience_buffer(buffer,batch_size):
+    indices = np.random.choice(len(self.buffer), batch_size, replace=False)
+    return [buffer[idx] for idx in indices])
         
 
 def main():
@@ -52,8 +56,6 @@ def main():
 
     # DQN hyperparameters
     SAVE_MODEL_EVERY_N_TRANSITIONS = 100
-    N_TRAINING_BATCHES = 1000
-
     GAMMA = 0.99
     BATCH_SIZE = 32             
     REPLAY_SIZE = 10000
@@ -61,14 +63,15 @@ def main():
     SYNC_TARGET_NETWORK = 1000
     REPLAY_START_SIZE = 10000
 
-    total_transitions = 0
-
+    experience_buffer = deque(maxlen=REPLAY_SIZE)
     for transition in generate_transitions(agent, opponents):
-    
-        total_transitions += 1
-        print(transition)
-        if total_transitions > 20:
-            break
+        experience_buffer.append(transition)
+
+        if len(experience_buffer) < REPLAY_START_SIZE:
+            continue
+
+        training_data = sample_experience_buffer(experience_buffer,BATCH_SIZE)
+        break
 
 
 if __name__ == "__main__":
