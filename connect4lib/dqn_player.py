@@ -6,21 +6,6 @@ from tensorflow.keras import layers
 
 import copy
 
-def encode_position_action(board,col):
-    """
-    If move is legal, return the resulting board. Return None
-    for illegal moves.
-    """
-    n_rows = board.shape[1]
-    for r in range(n_rows):
-        row_to_try = n_rows-r-1
-        if np.sum(board[:,row_to_try,col])>0:
-            continue
-
-        newboard = board.copy()
-        newboard[0,row_to_try,col] = 1
-        return newboard
-
 class DQNPlayer(Player):
     
     def __init__(self,*args,**kwargs):
@@ -44,6 +29,5 @@ class DQNPlayer(Player):
 
     
     def get_move_scores_deterministic(self,board: np.array) -> np.array:
-        x = np.array([board])
-        move_scores = self.model.predict(x.swapaxes(1,2).swapaxes(2,3),verbose=0)[0]
+        move_scores = self.model.predict_on_batch(board.swapaxes(0,1).swapaxes(1,2)[np.newaxis,:])[0]
         return move_scores
