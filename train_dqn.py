@@ -63,21 +63,26 @@ def main():
     NCONNECT = 4
 
     agent = DQNPlayer(name="Magnus")
-    opponents = [RandomPlayer(name=f"RandomBot")]
+    #opponents = [RandomPlayer(name=f"RandomBot")]
+    opponents = [ColumnSpammer(name=f"CS")]
 
     # DQN hyperparameters
     SAVE_MODEL_EVERY_N_TRANSITIONS = 100
     GAMMA = 0.99
     BATCH_SIZE = 32             
-    REPLAY_SIZE = 10000
+    REPLAY_SIZE = 1000
     LEARNING_RATE = 1e-3
-    SYNC_TARGET_NETWORK = 1000
-    REPLAY_START_SIZE = 10000
+    SYNC_TARGET_NETWORK = 100
+    REPLAY_START_SIZE = 1000
     REWARD_BUFFER_SIZE = 100
 
+    EPSILON_DECAY_LAST_FRAME = 10**3
+    EPSILON_START = 1.0
+    EPSILON_FINAL = 0.02
+
     # For debugging
-    REPLAY_START_SIZE = 20
-    BATCH_SIZE = REPLAY_START_SIZE
+    #REPLAY_START_SIZE = 20
+    #BATCH_SIZE = REPLAY_START_SIZE
 
     experience_buffer = deque(maxlen=REPLAY_SIZE)
     reward_buffer = deque(maxlen=REWARD_BUFFER_SIZE)
@@ -86,9 +91,12 @@ def main():
         loss=MeanSquaredError(),
         optimizer= Adam(learning_rate=LEARNING_RATE))
 
+    frame_idx = -1
     for transition in generate_transitions(agent, opponents):
+        frame_idx += 1
         experience_buffer.append(transition)
 
+        agent.random_weight = max(EPSILON_FINAL, EPSILON_START - frame_idx / EPSILON_DECAY_LAST_FRAME)
 
         # Compute average reward
         if transition.resulting_state is None:
