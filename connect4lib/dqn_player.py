@@ -22,9 +22,9 @@ class DQNPlayer(Player):
                 layers.Dense(7, activation="linear",bias_initializer=keras.initializers.RandomNormal(mean=0.5, stddev=0.01, seed=None)),
             ]
         )
+        self.target_network = keras.models.clone_model(self.model)
+        self.target_network.set_weights(self.model.get_weights())
         
-
-        #self.target_network = copy.deepcopy(self.model) # for training
 
     
     def get_move_scores_deterministic(self,board: np.array) -> np.array:

@@ -123,7 +123,7 @@ def main():
         # Take maximum Q(s',a') of board states we end up in
         non_terminal_states = np.array([mr.resulting_state is not None for mr in training_data])
         resulting_boards = np.array([mr.resulting_state if mr.resulting_state is not None else np.zeros([2,6,7]) for mr in training_data])
-        resulting_board_q = agent.model.predict(resulting_boards.swapaxes(1,2).swapaxes(2,3),verbose=0)
+        resulting_board_q = agent.target_network.predict(resulting_boards.swapaxes(1,2).swapaxes(2,3),verbose=0)
         max_qs = np.max(resulting_board_q,axis=1)
         rewards = np.array([mr.reward for mr in training_data])
         q_to_train = rewards + GAMMA * np.multiply(non_terminal_states,max_qs)
@@ -143,6 +143,9 @@ def main():
         # Step the gradients
         agent.model.train_on_batch(x_train,q_to_train_mat)
 
+        # Update policy
+        if frame_idx % SYNC_TARGET_NETWORK == 0:
+            agent.target_network.set_weights(agent.model.get_weights())
 
 if __name__ == "__main__":
     main()
