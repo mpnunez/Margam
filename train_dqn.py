@@ -64,7 +64,7 @@ def main():
     REPLAY_START_SIZE = 10000
 
     # For debugging
-    REPLAY_START_SIZE = 5
+    REPLAY_START_SIZE = 20
     BATCH_SIZE = REPLAY_START_SIZE
 
     experience_buffer = deque(maxlen=REPLAY_SIZE)
@@ -82,15 +82,12 @@ def main():
 
         # Bellman equation part
         # Take maximum Q(s',a') of board states we end up in
-        resulting_boards = np.array([mr.resulting_state for mr in training_data])
-        print(resulting_boards.shape)
+        non_terminal_states = np.array([mr.resulting_state is not None for mr in training_data])
+        resulting_boards = np.array([mr.resulting_state if mr.resulting_state is not None else np.zeros([2,6,7]) for mr in training_data])
         resulting_board_q = agent.model.predict(resulting_boards.swapaxes(1,2).swapaxes(2,3),verbose=0)
-        print(resulting_board_q)
         max_qs = np.max(resulting_board_q,axis=1)
-        print(max_qs)
-
         rewards = np.array([mr.reward for mr in training_data])
-        q_to_train = rewards + GAMMA * max_qs
+        q_to_train = rewards + GAMMA * np.multiply(non_terminal_states,max_qs)
         print(q_to_train)
 
         # Needed for our mask
