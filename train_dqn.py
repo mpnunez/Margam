@@ -45,8 +45,8 @@ def generate_transitions(agent, opponents):
     return agent_move_records, agent_wlt_record
 
 def sample_experience_buffer(buffer,batch_size):
-    indices = np.random.choice(len(self.buffer), batch_size, replace=False)
-    return [buffer[idx] for idx in indices])
+    indices = np.random.choice(len(buffer), batch_size, replace=False)
+    return [buffer[idx] for idx in indices]
         
 
 def main():
@@ -63,6 +63,10 @@ def main():
     SYNC_TARGET_NETWORK = 1000
     REPLAY_START_SIZE = 10000
 
+    # For debugging
+    REPLAY_START_SIZE = 5
+    BATCH_SIZE = REPLAY_START_SIZE
+
     experience_buffer = deque(maxlen=REPLAY_SIZE)
     for transition in generate_transitions(agent, opponents):
         experience_buffer.append(transition)
@@ -71,6 +75,28 @@ def main():
             continue
 
         training_data = sample_experience_buffer(experience_buffer,BATCH_SIZE)
+        print(training_data[0])
+
+        # Make X and Y
+        X = np.array([mr.board_state for mr in training_data])
+
+        # Bellman equation part
+        # Take maximum Q(s',a') of board states we end up in
+        resulting_boards = np.array([mr.resulting_state for mr in training_data])
+        print(resulting_boards.shape)
+        resulting_board_q = agent.model.predict(resulting_boards.swapaxes(1,2).swapaxes(2,3),verbose=0)
+        print(resulting_board_q)
+        max_qs = np.max(resulting_board_q,axis=1)
+        print(max_qs)
+
+        rewards = np.array([mr.reward for mr in training_data])
+        q_to_train = rewards + GAMMA * max_qs
+        print(q_to_train)
+
+        # Needed for our mask
+        y = [mr.selected_move for mr in training_data]
+        #print(y)
+
         break
 
 
