@@ -7,10 +7,10 @@ from PyQt5.QtCore import pyqtSlot, QThread, QObject, pyqtSignal
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtWidgets import QMessageBox
 
-from connect4lib.aiplayer import AIPlayer
 from connect4lib.player import RandomPlayer, HumanPlayer
 from connect4lib.game import Game, GameStatus
 from connect4lib.player import Player
+from connect4lib.dqn_player import DQNPlayer
 import numpy as np
 from keras.models import load_model
 
@@ -48,8 +48,8 @@ class Connect4GUI(QWidget):
         
         self.game = Game()
         human = HumanGUIPlayer(name="Human")
-        magnus = AIPlayer(name="Magnus")
-        magnus.model = load_model('magnus-2.h5')
+        magnus = DQNPlayer(name="Magnus")
+        magnus.model = load_model('magnus.h5')
         self.game.players = [human,magnus]
         #self.game.verbose = True
 
@@ -154,10 +154,10 @@ class Connect4GUI(QWidget):
         if self.check_game_completion():
             return
         
-        if not self.game.players[self.game.current_player].requires_user_input:
+        if not self.game.players[self.game.current_player_ind].requires_user_input:
             return
         
-        self.game.players[self.game.current_player].next_move = j
+        self.game.players[self.game.current_player_ind].next_move = j
         self.game.next_player_make_move()
         self.update_board()
         self.check_game_completion()
@@ -192,7 +192,7 @@ class Worker(QObject):
 
     def run(self):
         """Long-running task."""
-        if self.gui.game.status == GameStatus.INPROGRESS and not self.gui.game.players[self.gui.game.current_player].requires_user_input:
+        if self.gui.game.status == GameStatus.INPROGRESS and not self.gui.game.players[self.gui.game.current_player_ind].requires_user_input:
             time.sleep(1)
             move_ind = self.gui.game.get_next_player_move()
             self.progress.emit(move_ind)
