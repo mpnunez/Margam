@@ -14,7 +14,7 @@ import tensorflow as tf
 from tensorflow import one_hot
 from tensorflow.keras.losses import MeanSquaredError
 from tensorflow.keras.optimizers import Adam
-from tensorflow.summary import  SummaryWriter
+from tensorboardX import SummaryWriter
 
 def play_match(agent,opponents,i):
     """
