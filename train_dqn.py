@@ -71,19 +71,15 @@ def main():
     SAVE_MODEL_EVERY_N_TRANSITIONS = 100
     GAMMA = 0.99
     BATCH_SIZE = 32             
-    REPLAY_SIZE = 1000
-    LEARNING_RATE = 1e-3
+    REPLAY_SIZE = 10000
+    LEARNING_RATE = 1e-4
     SYNC_TARGET_NETWORK = 1000
-    REPLAY_START_SIZE = 1000
-    REWARD_BUFFER_SIZE = 100
+    REPLAY_START_SIZE = 10000
+    REWARD_BUFFER_SIZE = 1000
 
     EPSILON_DECAY_LAST_FRAME = 10**4
     EPSILON_START = 1.0
     EPSILON_FINAL = 0.02
-
-    # For debugging
-    #REPLAY_START_SIZE = 20
-    #BATCH_SIZE = REPLAY_START_SIZE
 
     experience_buffer = deque(maxlen=REPLAY_SIZE)
     reward_buffer = deque(maxlen=REWARD_BUFFER_SIZE)
@@ -94,6 +90,7 @@ def main():
 
     frame_idx = -1
     writer = SummaryWriter()
+    best_reward = 0
     for transition in generate_transitions(agent, opponents):
         frame_idx += 1
         experience_buffer.append(transition)
@@ -113,6 +110,10 @@ def main():
             print(f"Move distribution: {move_distribution}")
             writer.add_scalar("Average reward", smoothed_reward, frame_idx)
             writer.add_scalar("epsilon", agent.random_weight, frame_idx)
+
+            if smoothed_reward > max(0.6,best_reward+0.01):
+                agent.model.save("magnus.h5")
+                best_reward = smoothed_reward
 
         # Don't start training the network until we have enough data
         if len(experience_buffer) < REPLAY_START_SIZE:
