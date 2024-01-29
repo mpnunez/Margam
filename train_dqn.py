@@ -14,6 +14,7 @@ import tensorflow as tf
 from tensorflow import one_hot
 from tensorflow.keras.losses import MeanSquaredError
 from tensorflow.keras.optimizers import Adam
+from tensorflow.summary import  SummaryWriter
 
 def play_match(agent,opponents,i):
     """
@@ -92,6 +93,7 @@ def main():
         optimizer= Adam(learning_rate=LEARNING_RATE))
 
     frame_idx = -1
+    writer = SummaryWriter()
     for transition in generate_transitions(agent, opponents):
         frame_idx += 1
         experience_buffer.append(transition)
@@ -109,6 +111,8 @@ def main():
             move_distribution = move_distribution / move_distribution.sum()
             print(f"Epsilon: {agent.random_weight}")
             print(f"Move distribution: {move_distribution}")
+            writer.add_scalar("Average reward", smoothed_reward, frame_idx)
+            writer.add_scalar("epsilon", agent.random_weight, frame_idx)
 
         # Don't start training the network until we have enough data
         if len(experience_buffer) < REPLAY_START_SIZE:
@@ -142,11 +146,14 @@ def main():
         q_to_train_mat = q_to_train_mat*selected_move_mask + q_predicted*unselected_move_mask
 
         # Step the gradients
-        agent.model.train_on_batch(x_train,q_to_train_mat)
+        loss = agent.model.train_on_batch(x_train,q_to_train_mat)
+        writer.add_scalar("loss", loss, frame_idx)
 
         # Update policy
         if frame_idx % SYNC_TARGET_NETWORK == 0:
             agent.target_network.set_weights(agent.model.get_weights())
+
+    writer.close()
 
 if __name__ == "__main__":
     main()
