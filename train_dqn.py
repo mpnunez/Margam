@@ -66,6 +66,8 @@ def main():
     agent = DQNPlayer(name="Magnus")
     opponents = [RandomPlayer(name=f"RandomBot") for i in range(7)]
     opponents += [ColumnSpammer(name=f"CS",col_preference=i) for i in range(7)]
+    #opponents+= [DQNPlayer("fixed-DQN") for i in range(7)]
+    #opponents = [ColumnSpammer(name=f"CS",col_preference=3)]
 
     # DQN hyperparameters
     SAVE_MODEL_EVERY_N_TRANSITIONS = 100
@@ -101,15 +103,13 @@ def main():
         if transition.resulting_state is None:
             reward_buffer.append(transition.reward)
             smoothed_reward = sum(reward_buffer) / len(reward_buffer)
-            print(f"\nSteps: {frame_idx}")
-            print(f"Average reward (last {len(reward_buffer)} games): {smoothed_reward}")
             move_distribution = [mr.selected_move for mr in experience_buffer]
             move_distribution = np.array([move_distribution.count(i) for i in range(7)])
             move_distribution = move_distribution / move_distribution.sum()
-            print(f"Epsilon: {agent.random_weight}")
-            print(f"Move distribution: {move_distribution}")
+            #print(f"Move distribution: {move_distribution}")
             writer.add_scalar("Average reward", smoothed_reward, frame_idx)
-            writer.add_scalar("epsilon", agent.random_weight, frame_idx)
+            if agent.random_weight > EPSILON_FINAL:
+                writer.add_scalar("epsilon", agent.random_weight, frame_idx)
 
             if smoothed_reward > max(0.6,best_reward+0.01):
                 agent.model.save("magnus.h5")
