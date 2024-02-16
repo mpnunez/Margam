@@ -78,6 +78,7 @@ def main():
     SYNC_TARGET_NETWORK = 1000
     REPLAY_START_SIZE = 1000
     REWARD_BUFFER_SIZE = 1000
+    RECORD_HISTOGRAMS = 200
 
     EPSILON_DECAY_LAST_FRAME = 10**4
     EPSILON_START = 1.0
@@ -112,7 +113,7 @@ def main():
                 writer.add_scalar("epsilon", agent.random_weight, frame_idx)
 
             if smoothed_reward > max(0.6,best_reward+0.01):
-                agent.model.save("magnus.h5")
+                agent.model.save("magnus.keras")
                 best_reward = smoothed_reward
 
         # Don't start training the network until we have enough data
@@ -132,12 +133,12 @@ def main():
         resulting_board_q = agent.target_network.predict(resulting_boards.swapaxes(1,2).swapaxes(2,3),verbose=0)
         max_qs = np.max(resulting_board_q,axis=1)
         rewards = np.array([mr.reward for mr in training_data])
-        q_to_train = rewards + GAMMA * np.multiply(non_terminal_states,max_qs)
+        q_to_train_single_values = rewards + GAMMA * np.multiply(non_terminal_states,max_qs)
 
         # Needed for our mask
         selected_moves = [mr.selected_move for mr in training_data]
         selected_move_mask = one_hot(selected_moves, NCOLS)
-        q_to_train_mat = q_to_train[:,np.newaxis]*selected_move_mask
+        q_to_train_mat = q_to_train_single_values[:,np.newaxis]*selected_move_mask
 
         # Hack to mask q-values for unselected moves
         # Set training value equal to predicted value
@@ -145,6 +146,12 @@ def main():
         unselected_move_mask = np.ones(selected_move_mask.shape) - selected_move_mask
         q_predicted = agent.model.predict_on_batch(x_train)
         q_to_train_mat = q_to_train_mat*selected_move_mask + q_predicted*unselected_move_mask
+        q_predicted_single_values = np.sum(q_predicted*selected_move_mask,axis=1)
+        q_prediction_errors = q_predicted_single_values - q_to_train_single_values
+
+        # Record prediction error
+        if frame_idx % RECORD_HISTOGRAMS == 0:
+            writer.add_histogram("q-error",q_prediction_errors,frame_idx)
 
         # Step the gradients
         loss = agent.model.train_on_batch(x_train,q_to_train_mat)
