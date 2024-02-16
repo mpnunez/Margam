@@ -73,10 +73,10 @@ def main():
     SAVE_MODEL_EVERY_N_TRANSITIONS = 100
     GAMMA = 0.99
     BATCH_SIZE = 32             
-    REPLAY_SIZE = 10000
+    REPLAY_SIZE = 1000
     LEARNING_RATE = 1e-4
     SYNC_TARGET_NETWORK = 1000
-    REPLAY_START_SIZE = 10000
+    REPLAY_START_SIZE = 1000
     REWARD_BUFFER_SIZE = 1000
 
     EPSILON_DECAY_LAST_FRAME = 10**4
@@ -89,12 +89,12 @@ def main():
     agent.model.compile(
         loss=MeanSquaredError(),
         optimizer= Adam(learning_rate=LEARNING_RATE))
+    print(agent.model.summary())
 
-    frame_idx = -1
     writer = SummaryWriter()
     best_reward = 0
-    for transition in generate_transitions(agent, opponents):
-        frame_idx += 1
+    for frame_idx, transition in enumerate(generate_transitions(agent, opponents)):
+
         experience_buffer.append(transition)
 
         agent.random_weight = max(EPSILON_FINAL, EPSILON_START - frame_idx / EPSILON_DECAY_LAST_FRAME)
