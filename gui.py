@@ -49,7 +49,7 @@ class Connect4GUI(QWidget):
         self.game = Game()
         human = HumanGUIPlayer(name="Human")
         magnus = DQNPlayer(name="Magnus")
-        magnus.model = load_model('magnus.h5')
+        magnus.model = load_model('magnus.keras')
         self.game.players = [human,magnus]
         #self.game.verbose = True
 

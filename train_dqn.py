@@ -35,7 +35,7 @@ def play_match(agent,opponents,i):
     winner, records = g.play_game()
     agent_records = records[agent_position::len(g.players)]
 
-    return agent_records
+    return agent_records, opponent
 
 def generate_transitions(agent, opponents):
     """
@@ -44,9 +44,9 @@ def generate_transitions(agent, opponents):
     """
     i = 0
     while True:
-        agent_records = play_match(agent,opponents,i)
+        agent_records, opponent = play_match(agent,opponents,i)
         for move_record in agent_records:
-            yield move_record
+            yield move_record, opponent
         i += 1
 
     return agent_move_records, agent_wlt_record
@@ -65,7 +65,7 @@ def main():
 
     agent = DQNPlayer(name="Magnus")
     opponents = [RandomPlayer(name=f"RandomBot") for i in range(7)]
-    opponents += [ColumnSpammer(name=f"CS",col_preference=i) for i in range(7)]
+    opponents += [ColumnSpammer(name=f"CS-{i}",col_preference=i) for i in range(NCOLS)]
     #opponents+= [DQNPlayer("fixed-DQN") for i in range(7)]
     #opponents = [ColumnSpammer(name=f"CS",col_preference=3)]
 
@@ -90,6 +90,9 @@ def main():
 
     experience_buffer = deque(maxlen=REPLAY_SIZE)
     reward_buffer = deque(maxlen=REWARD_BUFFER_SIZE)
+    reward_buffer_vs = {}
+    for opp in opponents:
+        reward_buffer_vs[opp.name] = deque(maxlen=REWARD_BUFFER_SIZE//len(opponents))
 
     mse_loss=MeanSquaredError()
     optimizer= Adam(learning_rate=LEARNING_RATE)
@@ -97,7 +100,7 @@ def main():
 
     writer = SummaryWriter()
     best_reward = 0
-    for frame_idx, transition in enumerate(generate_transitions(agent, opponents)):
+    for frame_idx, (transition, opponent) in enumerate(generate_transitions(agent, opponents)):
 
         experience_buffer.append(transition)
 
@@ -106,12 +109,16 @@ def main():
         # Compute average reward
         if transition.resulting_state is None:
             reward_buffer.append(transition.reward)
+            reward_buffer_vs[opponent.name].append(transition.reward)
             smoothed_reward = sum(reward_buffer) / len(reward_buffer)
             move_distribution = [mr.selected_move for mr in experience_buffer]
             move_distribution = np.array([move_distribution.count(i) for i in range(7)])
             move_distribution = move_distribution / move_distribution.sum()
             #print(f"Move distribution: {move_distribution}")
             writer.add_scalar("Average reward", smoothed_reward, frame_idx)
+            for opp_name, opp_buffer in reward_buffer_vs.items():
+                reward_vs = sum(opp_buffer) / len(opp_buffer) if len(opp_buffer) else 0
+                writer.add_scalar(f"reward-vs-{opp_name}", reward_vs, frame_idx)
             if agent.random_weight > EPSILON_FINAL:
                 writer.add_scalar("epsilon", agent.random_weight, frame_idx)
 
