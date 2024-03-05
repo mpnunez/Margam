@@ -70,15 +70,19 @@ def main():
     #opponents = [ColumnSpammer(name=f"CS",col_preference=3)]
 
     # DQN hyperparameters
-    SAVE_MODEL_EVERY_N_TRANSITIONS = 100
+    
     GAMMA = 0.99
     BATCH_SIZE = 32             
-    REPLAY_SIZE = 1000
+    REPLAY_SIZE = 1_000
     LEARNING_RATE = 1e-4
-    SYNC_TARGET_NETWORK = 1e3
-    REPLAY_START_SIZE = 1e4
-    REWARD_BUFFER_SIZE = 1e4
-    RECORD_HISTOGRAMS = 200
+    SYNC_TARGET_NETWORK = 1_000
+    REPLAY_START_SIZE = 10_000
+    REWARD_BUFFER_SIZE = 1_000
+    REPLAY_START_SIZE = 10_000
+
+    RECORD_HISTOGRAMS = 1_000
+    SAVE_MODEL_ABS_THRESHOLD = 0.70
+    SAVE_MODEL_REL_THRESHOLD = 0.01
 
     EPSILON_DECAY_LAST_FRAME = 1e5
     EPSILON_START = 1.0
@@ -87,10 +91,9 @@ def main():
     experience_buffer = deque(maxlen=REPLAY_SIZE)
     reward_buffer = deque(maxlen=REWARD_BUFFER_SIZE)
 
-    agent.model.compile(
-        loss=MeanSquaredError(),
-        optimizer= Adam(learning_rate=LEARNING_RATE))
-    print(agent.model.summary())
+    mse_loss=MeanSquaredError()
+    optimizer= Adam(learning_rate=LEARNING_RATE)
+    agent.model.summary()
 
     writer = SummaryWriter()
     best_reward = 0
@@ -112,7 +115,7 @@ def main():
             if agent.random_weight > EPSILON_FINAL:
                 writer.add_scalar("epsilon", agent.random_weight, frame_idx)
 
-            if smoothed_reward > max(0.6,best_reward+0.01):
+            if smoothed_reward > max(SAVE_MODEL_ABS_THRESHOLD,best_reward+SAVE_MODEL_REL_THRESHOLD):
                 agent.model.save("magnus.keras")
                 best_reward = smoothed_reward
 
@@ -129,8 +132,8 @@ def main():
         # Bellman equation part
         # Take maximum Q(s',a') of board states we end up in
         non_terminal_states = np.array([mr.resulting_state is not None for mr in training_data])
-        resulting_boards = np.array([mr.resulting_state if mr.resulting_state is not None else np.zeros([2,6,7]) for mr in training_data])
-        resulting_board_q = agent.target_network.predict(resulting_boards.swapaxes(1,2).swapaxes(2,3),verbose=0)
+        resulting_boards = np.array([mr.resulting_state if mr.resulting_state is not None else np.zeros(transition.board_state.shape) for mr in training_data])
+        resulting_board_q = agent.target_network.predict_on_batch(resulting_boards.swapaxes(1,2).swapaxes(2,3))
         max_qs = np.max(resulting_board_q,axis=1)
         rewards = np.array([mr.reward for mr in training_data])
         q_to_train_single_values = rewards + GAMMA * np.multiply(non_terminal_states,max_qs)
@@ -138,24 +141,22 @@ def main():
         # Needed for our mask
         selected_moves = [mr.selected_move for mr in training_data]
         selected_move_mask = one_hot(selected_moves, NCOLS)
-        q_to_train_mat = q_to_train_single_values[:,np.newaxis]*selected_move_mask
-
-        # Hack to mask q-values for unselected moves
-        # Set training value equal to predicted value
-        # Loss and gradient will be zero for MSE
-        unselected_move_mask = np.ones(selected_move_mask.shape) - selected_move_mask
-        q_predicted = agent.model.predict_on_batch(x_train)
-        q_to_train_mat = q_to_train_mat*selected_move_mask + q_predicted*unselected_move_mask
-        q_predicted_single_values = np.sum(q_predicted*selected_move_mask,axis=1)
-        q_prediction_errors = q_predicted_single_values - q_to_train_single_values
-
+        
+        # Compute MSE loss based on chosen move values only
+        with tf.GradientTape() as tape:
+            predicted_q_values = agent.model(x_train)
+            predicted_q_values = tf.multiply(predicted_q_values,selected_move_mask)
+            predicted_q_values = tf.reduce_sum(predicted_q_values, 1)
+            q_prediction_errors = predicted_q_values - q_to_train_single_values
+            loss_value = mse_loss(q_to_train_single_values, predicted_q_values)
+ 
+        grads = tape.gradient(loss_value, agent.model.trainable_variables)
+        optimizer.apply_gradients(zip(grads, agent.model.trainable_variables))
+        
         # Record prediction error
+        writer.add_scalar("loss", loss_value.numpy(), frame_idx)
         if frame_idx % RECORD_HISTOGRAMS == 0:
-            writer.add_histogram("q-error",q_prediction_errors,frame_idx)
-
-        # Step the gradients
-        loss = agent.model.train_on_batch(x_train,q_to_train_mat)
-        writer.add_scalar("loss", loss, frame_idx)
+            writer.add_histogram("q-error",q_prediction_errors.numpy(),frame_idx)
 
         # Update policy
         if frame_idx % SYNC_TARGET_NETWORK == 0:
