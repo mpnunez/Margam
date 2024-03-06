@@ -9,7 +9,7 @@ from PyQt5.QtWidgets import QMessageBox
 
 from connect4lib.player import RandomPlayer, HumanPlayer
 from connect4lib.game import Game, GameStatus
-from connect4lib.player import Player
+from connect4lib.player import Player, ColumnSpammer, RandomPlayer
 from connect4lib.dqn_player import DQNPlayer
 import numpy as np
 from keras.models import load_model
@@ -102,11 +102,29 @@ class Connect4GUI(QWidget):
         start_button.clicked.connect(self.start_new_game)
         self.grid.addWidget(start_button,nrows+1,0)
     
+
+        def set_player(player_text,ind):
+
+            if player_text == 'Human':
+                self.game.players[ind] = HumanGUIPlayer()
+            elif player_text == 'Random':
+                self.game.players[ind] = RandomPlayer()
+            elif player_text == 'Column Spammer':
+                self.game.players[ind] = ColumnSpammer()
+            elif player_text == 'Load model':
+                self.game.players[ind] = DQNPlayer()
+                self.game.players[ind].model = load_model("magnus.keras")
+
+            
+
+
         # Add player selectors
         player_selectors = [QComboBox(), QComboBox()]
         for ind, ps in enumerate(player_selectors):
             ps.addItems(['Human', 'Random', 'Column Spammer', 'Load model'])
             self.grid.addWidget(ps,nrows+1,ind+1)
+            ps.setEditable(True) 
+            ps.currentTextChanged.connect(functools.partial(set_player, ind=ind))
         			
         
         # Initialize layout
