@@ -1,10 +1,5 @@
-from connect4lib.game import Game
-from connect4lib.player import RandomPlayer, ColumnSpammer
-from connect4lib.dqn_player import DQNPlayer
 from tqdm import tqdm
 import numpy as np
-from keras.models import load_model
-from collections import Counter
 from enum import Enum
 import itertools
 from collections import deque
@@ -15,41 +10,42 @@ from tensorflow import one_hot
 from tensorflow.keras.losses import MeanSquaredError
 from tensorflow.keras.optimizers import Adam
 from tensorboardX import SummaryWriter
+from keras.models import load_model
 
-def play_match(agent,opponents,i):
-    """
-    Play a single game and return
-    transition records for the agent
-    """
-    opponent_ind = (i//2)%len(opponents)    # Play each opponent twice in a row
-    opponent = opponents[opponent_ind]
-    agent_position = i%2
-    opponent_position = (agent_position+1)%2
-    
-    g = Game()
-    g.players = [None,None]
-    g.players[agent_position] = agent        # Alternate being player 1/2
-    g.players[opponent_position] = opponent   
-    
-    
-    winner, records = g.play_game()
-    agent_records = records[agent_position::len(g.players)]
+from connect4lib.game import Game
+from connect4lib.player import RandomPlayer, ColumnSpammer
+from connect4lib.dqn_player import DQNPlayer
+from connect4lib.hyperparams import *
 
-    return agent_records, opponent
+class TrainingMode(Enum):
+    DEEP_QNET = 1
+    POLICY_GRADIENT = 2
+
 
 def generate_transitions(agent, opponents):
     """
     Infinitely yield transitions by playing
     game episodes
     """
-    i = 0
-    while True:
-        agent_records, opponent = play_match(agent,opponents,i)
+
+    for i, _ in enumerate(iter(bool, True)):
+
+        opponent_ind = (i//2)%len(opponents)    # Play each opponent twice in a row
+        opponent = opponents[opponent_ind]
+        agent_position = i%2
+        opponent_position = (agent_position+1)%2
+        
+        g = Game(nrows=NROWS,ncols=NCOLS,nconnectwins=NCONNECT)
+        g.players = [None,None]
+        g.players[agent_position] = agent        # Alternate being player 1/2
+        g.players[opponent_position] = opponent   
+        
+        
+        winner, records = g.play_game()
+        agent_records = records[agent_position::len(g.players)]
+
         for move_record in agent_records:
             yield move_record, opponent
-        i += 1
-
-    return agent_move_records, agent_wlt_record
 
 def sample_experience_buffer(buffer,batch_size):
     indices = np.random.choice(len(buffer), batch_size, replace=False)
@@ -59,34 +55,12 @@ def sample_experience_buffer(buffer,batch_size):
 
 def main():
     
-    NROWS = 6
-    NCOLS = 7
-    NCONNECT = 4
-
+    # Intialize players
     agent = DQNPlayer(name="Magnus")
-    opponents = [RandomPlayer(name=f"RandomBot") for i in range(7)]
+    agent.initialize_model(NROWS,NCOLS,NPLAYERS)
+    opponents = [RandomPlayer(name=f"RandomBot") for i in range(NCOLS)]
     opponents += [ColumnSpammer(name=f"CS-{i}",col_preference=i) for i in range(NCOLS)]
-    #opponents+= [DQNPlayer("fixed-DQN") for i in range(7)]
-    #opponents = [ColumnSpammer(name=f"CS",col_preference=3)]
 
-    # DQN hyperparameters
-    
-    GAMMA = 0.99
-    BATCH_SIZE = 32             
-    REPLAY_SIZE = 10_000
-    LEARNING_RATE = 1e-4
-    SYNC_TARGET_NETWORK = 1_000
-    REPLAY_START_SIZE = 10_000
-    REWARD_BUFFER_SIZE = 1_000
-
-
-    RECORD_HISTOGRAMS = 1_000
-    SAVE_MODEL_ABS_THRESHOLD = 0.70
-    SAVE_MODEL_REL_THRESHOLD = 0.01
-
-    EPSILON_DECAY_LAST_FRAME = 1e5
-    EPSILON_START = 1.0
-    EPSILON_FINAL = 0.02
 
     experience_buffer = deque(maxlen=REPLAY_SIZE)
     reward_buffer = deque(maxlen=REWARD_BUFFER_SIZE)
@@ -173,4 +147,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

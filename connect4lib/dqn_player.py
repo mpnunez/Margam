@@ -10,8 +10,11 @@ class DQNPlayer(Player):
     
     def __init__(self,*args,**kwargs):
         super().__init__(*args,**kwargs)
-        
-        input_shape = (6, 7, 2)
+        self.model = None
+        self.target_network = None
+    
+    def initialize_model(self,n_rows,n_cols,n_players):
+        input_shape = (n_rows,n_cols,n_players)
         self.model = keras.Sequential(
             [
                 keras.Input(shape=input_shape),
@@ -19,7 +22,7 @@ class DQNPlayer(Player):
                 layers.MaxPooling2D(pool_size=(2, 2)),
                 layers.Flatten(),
                 layers.Dense(64, activation="relu"),
-                layers.Dense(7, activation="linear",bias_initializer=keras.initializers.RandomNormal(mean=0.5, stddev=0.01, seed=None)),
+                layers.Dense(n_cols, activation="linear",bias_initializer=keras.initializers.RandomNormal(mean=0.5, stddev=0.01, seed=None)),
             ]
         )
         self.target_network = keras.models.clone_model(self.model)
