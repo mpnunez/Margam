@@ -18,7 +18,6 @@ from connect4lib.dqn_player import DQNPlayer
 from connect4lib.hyperparams import *
 
 
-
 def generate_transitions(agent, opponents):
     """
     Infinitely yield transitions by playing
@@ -45,7 +44,36 @@ def generate_transitions(agent, opponents):
             yield move_record, opponent
 
 
+def generate_transitions_pg(agent, opponents):
+    """
+    Sample a full episode, then assign q values
+    based on final reward
+    """
 
+    episode_transitions = []
+    q_values = []
+    for transition, opponent in generate_transitions(agent,opponents):
+
+        episode_transitions.append(transition)
+
+        if transition.resulting_state is not None:
+            continue
+
+        # Assign q-values based on unrolling to final state
+        prev_q = 0
+        for tsn in reversed(episode_transitions):
+            q = tsn.reward + DISCOUNT_RATE * prev_q
+            prev_q = q
+            q_values.append(q)
+        q_values = list(reversed(q_values))
+            
+        # Yield scored transitions to caller
+        for tsn, q_value in zip(episode_transitions,q_values):
+            yield tsn, q_value, opponent
+
+        # Reset for next episode
+        episode_transitions = []
+        q_values = []
 
 
 def sample_experience_buffer(buffer,batch_size):
@@ -73,9 +101,21 @@ def main():
     optimizer= Adam(learning_rate=LEARNING_RATE)
     agent.model.summary()
 
-    writer = SummaryWriter()
+    #writer = SummaryWriter()
     best_reward = 0
-    for frame_idx, (transition, opponent) in enumerate(generate_transitions(agent, opponents)):
+    for frame_idx, (transition, q_value, opponent) in enumerate(generate_transitions_pg(agent, opponents)):
+
+        print(f"\nStep {frame_idx}")
+        print(transition)
+        print(f"q-value: {q_value}")
+        print(opponent.name)
+
+        if frame_idx > 10:
+            return
+        else:
+            continue
+
+        
 
         experience_buffer.append(transition)
 
@@ -107,30 +147,12 @@ def main():
 
         training_data = sample_experience_buffer(experience_buffer,BATCH_SIZE)
 
-        # Make X and Y
-        x_train = np.array([mr.board_state for mr in training_data])
-        x_train = x_train.swapaxes(1,2).swapaxes(2,3)
-
-        # Bellman equation part
-        # Take maximum Q(s',a') of board states we end up in
-        non_terminal_states = np.array([mr.resulting_state is not None for mr in training_data])
-        resulting_boards = np.array([mr.resulting_state if mr.resulting_state is not None else np.zeros(transition.board_state.shape) for mr in training_data])
-        resulting_board_q = agent.target_network.predict_on_batch(resulting_boards.swapaxes(1,2).swapaxes(2,3))
-        max_qs = np.max(resulting_board_q,axis=1)
-        rewards = np.array([mr.reward for mr in training_data])
-        q_to_train_single_values = rewards + DISCOUNT_RATE * np.multiply(non_terminal_states,max_qs)
-
-        # Needed for our mask
-        selected_moves = [mr.selected_move for mr in training_data]
-        selected_move_mask = one_hot(selected_moves, NCOLS)
+        
         
         # Compute MSE loss based on chosen move values only
         with tf.GradientTape() as tape:
-            predicted_q_values = agent.model(x_train)
-            predicted_q_values = tf.multiply(predicted_q_values,selected_move_mask)
-            predicted_q_values = tf.reduce_sum(predicted_q_values, 1)
-            q_prediction_errors = predicted_q_values - q_to_train_single_values
-            loss_value = mse_loss(q_to_train_single_values, predicted_q_values)
+            pass
+            # propagate through NN
  
         grads = tape.gradient(loss_value, agent.model.trainable_variables)
         optimizer.apply_gradients(zip(grads, agent.model.trainable_variables))

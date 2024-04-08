@@ -1,6 +1,6 @@
 import numpy as np
 from connect4lib.utils import Connect4Exception
-from connect4lib.move_record import MoveRecord
+from connect4lib.transition import Transition
 from enum import Enum
 
 class GameStatus(Enum):
@@ -144,7 +144,7 @@ class Game:
         board_player_pov = np.roll(self.board,-self.current_player_ind,axis=0)
         player_move = self.get_player_move(player,board_player_pov)
 
-        move_record = MoveRecord(
+        move_record = Transition(
             board_state = board_player_pov,
             selected_move = player_move,
             )
