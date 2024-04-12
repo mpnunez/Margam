@@ -95,21 +95,12 @@ def main():
     batch_states = []
     batch_actions = []
     batch_scales = []
+    n_episodes_in_batch = 0
     baseline = 0.5
 
-    #writer = SummaryWriter()
+    writer = SummaryWriter()
     best_reward = 0
     for frame_idx, (transition, q_value, opponent) in enumerate(generate_transitions_pg(agent, opponents)):
-
-        print(f"\nStep {frame_idx}")
-        print(transition)
-        print(f"q-value: {q_value}")
-        print(opponent.name)
-
-        if frame_idx > 10:
-            return
-        else:
-            continue
 
         batch_states.append(transition.board_state)
         batch_actions.append(transition.selected_move)
@@ -117,10 +108,11 @@ def main():
 
         # Compute average reward
         if transition.resulting_state is None:
+            n_episodes_in_batch += 1
             reward_buffer.append(transition.reward)
             reward_buffer_vs[opponent.name].append(transition.reward)
             smoothed_reward = sum(reward_buffer) / len(reward_buffer)
-            move_distribution = [mr.selected_move for mr in experience_buffer]
+            move_distribution = batch_actions
             move_distribution = np.array([move_distribution.count(i) for i in range(7)])
             move_distribution = move_distribution / move_distribution.sum()
             #print(f"Move distribution: {move_distribution}")
@@ -134,16 +126,16 @@ def main():
                 best_reward = smoothed_reward
 
         # Don't start training the network until we have enough data
-        if len(batch_states) < BATCH_N_EPISODES:
+        if n_episodes_in_batch < BATCH_N_EPISODES:
             continue
 
         
         # Chosen moves
         selected_move_mask = one_hot(batch_actions, NCOLS)
-        x_train = np.array([mr.board_state for mr in batch_states])
+        x_train = np.array(batch_states)
         x_train = x_train.swapaxes(1,2).swapaxes(2,3)
 
-        batch_scales = np.array(batch_scales)
+        batch_scales = np.array(batch_scales).astype('float32')
 
         with tf.GradientTape() as tape:
 
@@ -151,7 +143,10 @@ def main():
             move_log_probs = tf.nn.log_softmax(logits)
             masked_log_probs = tf.multiply(move_log_probs,selected_move_mask)
             selected_log_probs = tf.reduce_sum(masked_log_probs, 1)
+            #print(batch_scales.shape)
+            #print(selected_log_probs.shape)
             loss = - tf.tensordot(batch_scales,selected_log_probs,axes=1)
+            writer.add_scalar("expectation-loss", loss.numpy(), frame_idx)
 
             # Entropy component of loss
             if ENTROPY_BETA:
@@ -161,15 +156,17 @@ def main():
                 entropy = tf.reduce_mean(entropy_each_state)
                 entropy_loss = -ENTROPY_BETA * entropy
                 loss += entropy_loss
+                writer.add_scalar("entropy-loss", entropy_loss.numpy(), frame_idx)
  
+        writer.add_scalar("loss", loss.numpy(), frame_idx)
         grads = tape.gradient(loss, agent.model.trainable_variables)
         optimizer.apply_gradients(zip(grads, agent.model.trainable_variables))
         
-        
-
+        # Reset sampling
         batch_states = []
         batch_actions = []
         batch_scales = []
+        n_episodes_in_batch = 0
 
     writer.close()
 

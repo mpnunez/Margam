@@ -1,8 +1,10 @@
 from connect4lib.player import Player
 import numpy as np
+import random
 
 from tensorflow import keras
 from tensorflow.keras import layers
+from tensorflow.nn import softmax
 
 import copy
 
@@ -25,15 +27,10 @@ class PolicyPlayer(Player):
                 layers.Dense(n_cols, activation="linear"),
             ]
         )
-        self.target_network = keras.models.clone_model(self.model)
-        self.target_network.set_weights(self.model.get_weights())
-
     
-    def get_move_scores_deterministic(self,board: np.array) -> np.array:
-        """
-        TODO: rethink how the game handles illegal moves
-        requested by 
-        Is ranking the best way? 
-        """
-        move_scores = self.model.predict_on_batch(board.swapaxes(0,1).swapaxes(1,2)[np.newaxis,:])[0]
-        return move_scores
+    def get_move(self,board: np.array) -> np.array:
+        n_cols = board.shape[2]
+        logits = self.model.predict_on_batch(board.swapaxes(0,1).swapaxes(1,2)[np.newaxis,:])[0]
+        move_probabilities = softmax(logits)
+        selected_move = random.choices(range(n_cols), weights=move_probabilities, k=1)[0]
+        return selected_move

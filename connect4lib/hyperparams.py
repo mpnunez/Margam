@@ -24,5 +24,5 @@ EPSILON_START = 1.0
 EPSILON_FINAL = 0.02
 
 # Policy gradient
-BATCH_N_EPISODES = 4   # number of episodes in each batch
+BATCH_N_EPISODES = 4
 ENTROPY_BETA = 0.01

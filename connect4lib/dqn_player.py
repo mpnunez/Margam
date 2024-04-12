@@ -12,6 +12,7 @@ class DQNPlayer(Player):
         super().__init__(*args,**kwargs)
         self.model = None
         self.target_network = None
+        self.random_weight = 0
     
     def initialize_model(self,n_rows,n_cols,n_players):
         input_shape = (n_rows,n_cols,n_players)
@@ -29,6 +30,9 @@ class DQNPlayer(Player):
         self.target_network.set_weights(self.model.get_weights())
 
     
-    def get_move_scores_deterministic(self,board: np.array) -> np.array:
-        move_scores = self.model.predict_on_batch(board.swapaxes(0,1).swapaxes(1,2)[np.newaxis,:])[0]
-        return move_scores
+    def get_move(self,board: np.array) -> int:
+        q_values = self.model.predict_on_batch(board.swapaxes(0,1).swapaxes(1,2)[np.newaxis,:])[0]
+        max_q_ind = np.argmax(q_values)
+        if (self.random_weight != 0) and (np.random.random() < self.random_weight):
+            return random.choice(range(board.shape[2]))
+        return max_q_ind

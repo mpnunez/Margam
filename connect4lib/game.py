@@ -2,6 +2,7 @@ import numpy as np
 from connect4lib.utils import Connect4Exception
 from connect4lib.transition import Transition
 from enum import Enum
+import random
 
 class GameStatus(Enum):
     NOTSTARTED = 1
@@ -118,19 +119,13 @@ class Game:
         Get the legal move the player evaluates as highest
         """
         
-        # Get all move scores
-        player_move_scores = player.get_move_scores(board_player_pov)
-        scored_moves = [(-score,ind) for ind, score in enumerate(player_move_scores)]
-        scored_moves = sorted(scored_moves)
-        
-        # Get the valid move with the highest player score
         legal_moves, _ = self.get_legal_illegal_moves()
-        for _, col in scored_moves:
-            if col in legal_moves:
-                actual_move = col
-                break
-            
-        return actual_move
+        player_desired_move = player.get_move(board_player_pov)
+        if player_desired_move in legal_moves:
+            return player_desired_move
+
+        return random.choice(legal_moves)
+
         
     
     def start_game(self):
