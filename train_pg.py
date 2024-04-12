@@ -145,7 +145,7 @@ def main():
             selected_log_probs = tf.reduce_sum(masked_log_probs, 1)
             #print(batch_scales.shape)
             #print(selected_log_probs.shape)
-            loss = - tf.tensordot(batch_scales,selected_log_probs,axes=1)
+            loss = - tf.tensordot(batch_scales,selected_log_probs,axes=1) / len(selected_log_probs)
             writer.add_scalar("expectation-loss", loss.numpy(), frame_idx)
 
             # Entropy component of loss
