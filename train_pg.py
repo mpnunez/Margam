@@ -14,7 +14,7 @@ from keras.models import load_model
 
 from connect4lib.game import Game
 from connect4lib.player import RandomPlayer, ColumnSpammer
-from connect4lib.dqn_player import DQNPlayer
+from connect4lib.pg_player import PolicyPlayer
 from connect4lib.hyperparams import *
 
 
@@ -76,30 +76,26 @@ def generate_transitions_pg(agent, opponents):
         q_values = []
 
 
-def sample_experience_buffer(buffer,batch_size):
-    indices = np.random.choice(len(buffer), batch_size, replace=False)
-    return [buffer[idx] for idx in indices]
-        
-
-
 def main():
     
     # Intialize players
-    agent = DQNPlayer(name="Magnus")
+    agent = PolicyPlayer(name="Magnus-PG")
     agent.initialize_model(NROWS,NCOLS,NPLAYERS)
     opponents = [RandomPlayer(name=f"RandomBot") for i in range(NCOLS)]
     opponents += [ColumnSpammer(name=f"CS-{i}",col_preference=i) for i in range(NCOLS)]
 
-
-    experience_buffer = deque(maxlen=REPLAY_SIZE)
     reward_buffer = deque(maxlen=REWARD_BUFFER_SIZE)
     reward_buffer_vs = {}
     for opp in opponents:
         reward_buffer_vs[opp.name] = deque(maxlen=REWARD_BUFFER_SIZE//len(opponents))
 
-    mse_loss=MeanSquaredError()
     optimizer= Adam(learning_rate=LEARNING_RATE)
     agent.model.summary()
+
+    batch_states = []
+    batch_actions = []
+    batch_scales = []
+    baseline = 0.5
 
     #writer = SummaryWriter()
     best_reward = 0
@@ -115,11 +111,9 @@ def main():
         else:
             continue
 
-        
-
-        experience_buffer.append(transition)
-
-        agent.random_weight = max(EPSILON_FINAL, EPSILON_START - frame_idx / EPSILON_DECAY_LAST_FRAME)
+        batch_states.append(transition.board_state)
+        batch_actions.append(transition.selected_move)
+        batch_scales.append(transition.reward - baseline)
 
         # Compute average reward
         if transition.resulting_state is None:
@@ -134,37 +128,48 @@ def main():
             for opp_name, opp_buffer in reward_buffer_vs.items():
                 reward_vs = sum(opp_buffer) / len(opp_buffer) if len(opp_buffer) else 0
                 writer.add_scalar(f"reward-vs-{opp_name}", reward_vs, frame_idx)
-            if agent.random_weight > EPSILON_FINAL:
-                writer.add_scalar("epsilon", agent.random_weight, frame_idx)
 
             if smoothed_reward > max(SAVE_MODEL_ABS_THRESHOLD,best_reward+SAVE_MODEL_REL_THRESHOLD):
-                agent.model.save("magnus.keras")
+                agent.model.save(f"{agent.name}.keras")
                 best_reward = smoothed_reward
 
         # Don't start training the network until we have enough data
-        if len(experience_buffer) < REPLAY_START_SIZE:
+        if len(batch_states) < BATCH_N_EPISODES:
             continue
 
-        training_data = sample_experience_buffer(experience_buffer,BATCH_SIZE)
+        
+        # Chosen moves
+        selected_move_mask = one_hot(batch_actions, NCOLS)
+        x_train = np.array([mr.board_state for mr in batch_states])
+        x_train = x_train.swapaxes(1,2).swapaxes(2,3)
 
-        
-        
-        # Compute MSE loss based on chosen move values only
+        batch_scales = np.array(batch_scales)
+
         with tf.GradientTape() as tape:
-            pass
-            # propagate through NN
+
+            logits = agent.model(x_train)
+            move_log_probs = tf.nn.log_softmax(logits)
+            masked_log_probs = tf.multiply(move_log_probs,selected_move_mask)
+            selected_log_probs = tf.reduce_sum(masked_log_probs, 1)
+            loss = - tf.tensordot(batch_scales,selected_log_probs,axes=1)
+
+            # Entropy component of loss
+            if ENTROPY_BETA:
+                move_probs = tf.nn.softmax(logits)
+                entropy_components = tf.multiply(move_probs, move_log_probs)
+                entropy_each_state = -tf.reduce_sum(entropy_components, 1)
+                entropy = tf.reduce_mean(entropy_each_state)
+                entropy_loss = -ENTROPY_BETA * entropy
+                loss += entropy_loss
  
-        grads = tape.gradient(loss_value, agent.model.trainable_variables)
+        grads = tape.gradient(loss, agent.model.trainable_variables)
         optimizer.apply_gradients(zip(grads, agent.model.trainable_variables))
         
-        # Record prediction error
-        writer.add_scalar("loss", loss_value.numpy(), frame_idx)
-        if frame_idx % RECORD_HISTOGRAMS == 0:
-            writer.add_histogram("q-error",q_prediction_errors.numpy(),frame_idx)
+        
 
-        # Update policy
-        if frame_idx % SYNC_TARGET_NETWORK == 0:
-            agent.target_network.set_weights(agent.model.get_weights())
+        batch_states = []
+        batch_actions = []
+        batch_scales = []
 
     writer.close()
 
