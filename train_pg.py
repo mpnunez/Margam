@@ -162,6 +162,12 @@ def main():
         grads = tape.gradient(loss, agent.model.trainable_variables)
         optimizer.apply_gradients(zip(grads, agent.model.trainable_variables))
         
+        # calc KL-div
+        new_logits_v = agent.model(x_train)
+        new_prob_v = tf.nn.softmax(new_logits_v)
+        kl_div_v = -np.sum((np.log((new_prob_v / move_probs)) * move_probs), axis=1).mean()
+        writer.add_scalar("kl", kl_div_v.item(), frame_idx)
+
         # Reset sampling
         batch_states = []
         batch_actions = []
