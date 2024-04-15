@@ -12,7 +12,7 @@ class DQNPlayer(Player):
         super().__init__(*args,**kwargs)
         self.model = None
         self.target_network = None
-        self.random_weight = 0
+        self.random_weight = kwargs.get("random_weight",0)
     
     def initialize_model(self,n_rows,n_cols,n_players):
         input_shape = (n_rows,n_cols,n_players)

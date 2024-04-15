@@ -5,9 +5,8 @@ import random
 class Player(ABC):
     requires_user_input = False
     
-    def __init__(self,name=None,randomness_weight=0):
+    def __init__(self,name=None):
         self.name = name or "nameless"
-        self.random_weight = randomness_weight
 
     @abstractmethod
     def get_move(self,board: np.array) -> int:

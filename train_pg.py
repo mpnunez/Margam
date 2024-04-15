@@ -90,7 +90,10 @@ def main():
         reward_buffer_vs[opp.name] = deque(maxlen=REWARD_BUFFER_SIZE//len(opponents))
 
     optimizer= Adam(learning_rate=LEARNING_RATE)
-    agent.model.summary()
+    
+    agent.model_trunk.summary()
+    agent.logits_model.summary()
+    agent.state_value_model.summary()
 
     batch_states = []
     batch_actions = []
@@ -125,6 +128,7 @@ def main():
                 agent.model.save(f"{agent.name}.keras")
                 best_reward = smoothed_reward
 
+        continue    # skip training until we code it properly
         # Don't start training the network until we have enough data
         if n_episodes_in_batch < BATCH_N_EPISODES:
             continue
