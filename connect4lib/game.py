@@ -14,8 +14,7 @@ class Game:
         self.nrows = nrows
         self.ncols = ncols
         self.nconnectwins = nconnectwins
-        self.nplayers = 2
-        self.board = np.zeros([self.nplayers,self.nrows,self.ncols])
+        self.board = None
         self.current_player_ind = 0
         self.players = []
         self.status = GameStatus.NOTSTARTED
@@ -23,8 +22,11 @@ class Game:
         self.winner = -1
         self.move_ind = 0
         self.verbose = False
+        self.WIN_REWARD = 1
+        self.TIE_REWARD = 0
+        self.LOSS_REWARD = -1
 
-    def check_horizontal_win(self,player: int) -> bool:
+    def _check_horizontal_win(self,player: int) -> bool:
         for row in range(self.nrows):
             n_consecutive = 0
             for col in range(self.ncols):
@@ -37,7 +39,7 @@ class Game:
             
         return False
     
-    def check_vertical_win(self,player: int) -> bool:
+    def _check_vertical_win(self,player: int) -> bool:
         for col in range(self.ncols):
             n_consecutive = 0
             for row in range(self.nrows):
@@ -50,7 +52,7 @@ class Game:
             
         return False
     
-    def check_diagonal_ll_ur_win(self,player: int) -> bool:
+    def _check_diagonal_ll_ur_win(self,player: int) -> bool:
         """
         Sum of row and col is constant
         """
@@ -69,7 +71,7 @@ class Game:
             
         return False
     
-    def check_diagonal_ul_lr_win(self,player: int) -> bool:
+    def _check_diagonal_ul_lr_win(self,player: int) -> bool:
         """
         row# - col# is constant
         """
@@ -89,12 +91,8 @@ class Game:
         return False
 
 
-    def check_win(self,player: int = 0) -> bool:
-        """
-        Return True if there are 4 1's in a row in the first channel
-        """
-        
-        return self.check_horizontal_win(player) or self.check_vertical_win(player) or self.check_diagonal_ll_ur_win(player) or self.check_diagonal_ul_lr_win(player)
+    def check_win(self,player: int) -> bool:
+        return self._check_horizontal_win(player) or self._check_vertical_win(player) or self._check_diagonal_ll_ur_win(player) or self._check_diagonal_ul_lr_win(player)
     
     def drop_in_slot(self,player: int, col: int):
         row_to_drop = self.nrows-1
@@ -116,7 +114,10 @@ class Game:
 
     def get_player_move(self,player,board_player_pov):
         """
-        Get the legal move the player evaluates as highest
+        Get the move desired by the player
+
+        If it is an illegal move, choose a random
+        legal move for the player
         """
         
         legal_moves, _ = self.get_legal_illegal_moves()
@@ -129,14 +130,15 @@ class Game:
         
     
     def start_game(self):
-        if len(self.players) != self.nplayers:
-            raise Connect4Exception(f"Need {self.nplayers} players")
-        self.board = np.zeros([self.nplayers,self.nrows,self.ncols])
+        self.board = np.zeros([len(self.players),self.nrows,self.ncols])
         self.status = GameStatus.INPROGRESS
     
+    def get_board_from_player_pov(self, player_ind: int) -> np.array:
+        return np.roll(self.board,-player_ind,axis=0)
+
     def get_next_player_move(self):
         player = self.players[self.current_player_ind]
-        board_player_pov = np.roll(self.board,-self.current_player_ind,axis=0)
+        board_player_pov = self.get_board_from_player_pov(self.current_player_ind)
         player_move = self.get_player_move(player,board_player_pov)
 
         move_record = Transition(
@@ -149,21 +151,21 @@ class Game:
 
     
     def move_next_player_with(self,player_move):
-
-        
         self.drop_in_slot(self.current_player_ind,player_move)
         player_won = self.check_win(self.current_player_ind)
         player_tie = self.board.sum() == self.board.shape[1]*self.board.shape[2]
         game_over = player_won or player_tie
         self.status = GameStatus.COMPLETE if game_over else self.status
         if len(self.game_data) >= 2 and not game_over:
-            self.game_data[-2].resulting_state = self.board.copy()
+            self.game_data[-2].resulting_state = self.get_board_from_player_pov((self.current_player_ind-1)%len(self.players))
         if player_won:
-            self.game_data[-1].reward = 1
             self.winner = self.current_player_ind
+            self.game_data[-1].reward = self.WIN_REWARD
+            for i in range(max(-len(self.players),-len(self.game_data)),-1):
+                self.game_data[i] = self.LOSS_REWARD
         if player_tie:
-            self.game_data[-1].reward = 0.5
-            self.game_data[-2].reward = 0.5
+            for i in range(-len(self.players),0):
+                self.game_data[i] = self.TIE_REWARD
         if self.status == GameStatus.INPROGRESS:
             self.move_ind += 1
             self.current_player_ind = self.move_ind % len(self.players)

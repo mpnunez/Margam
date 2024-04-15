@@ -99,7 +99,6 @@ def main():
     batch_actions = []
     batch_scales = []
     n_episodes_in_batch = 0
-    baseline = 0.5
 
     writer = SummaryWriter()
     best_reward = 0
