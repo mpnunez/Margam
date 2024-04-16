@@ -33,11 +33,8 @@ class HumanGUIPlayer(Player):
         super().__init__(name)
         self.next_move = 0
     
-    def get_move_scores_deterministic(self,board: np.array) -> np.array:
-        n_cols = board.shape[2]
-        move_scores = np.zeros(n_cols)
-        move_scores[self.next_move] = 1
-        return move_scores
+    def get_move(self,board: np.array) -> np.array:
+        return self.next_move
 
 class Connect4GUI(QWidget):
     def __init__(self,parent=None):
@@ -49,14 +46,15 @@ class Connect4GUI(QWidget):
         self.game = Game()
         human = HumanGUIPlayer(name="Human")
         magnus = DQNPlayer(name="Magnus")
-        magnus.model = load_model('magnus.keras')
+        magnus.model = load_model('magnus-0.832.keras')
         self.game.players = [human,magnus]
         #self.game.verbose = True
 
 
         
-        
-        _, nrows, ncols = self.game.board.shape
+        nrows = 6
+        ncols = 7
+        #_, nrows, ncols = self.game.board.shape
         self.nrows = nrows
         self.ncols = ncols
         self.grid = QGridLayout()

@@ -81,6 +81,8 @@ def main():
     # Intialize players
     agent = PolicyPlayer(name="Magnus-PG")
     agent.initialize_model(NROWS,NCOLS,NPLAYERS)
+    agent.model.summary()
+
     opponents = [RandomPlayer(name=f"RandomBot") for i in range(NCOLS)]
     opponents += [ColumnSpammer(name=f"CS-{i}",col_preference=i) for i in range(NCOLS)]
 
@@ -91,9 +93,7 @@ def main():
 
     optimizer= Adam(learning_rate=LEARNING_RATE)
     
-    agent.model_trunk.summary()
-    agent.logits_model.summary()
-    agent.state_value_model.summary()
+    
 
     batch_states = []
     batch_actions = []
@@ -106,7 +106,7 @@ def main():
 
         batch_states.append(transition.board_state)
         batch_actions.append(transition.selected_move)
-        batch_scales.append(transition.reward - baseline)
+        batch_scales.append(q_value)
 
         # Compute average reward
         if transition.resulting_state is None:
@@ -123,11 +123,10 @@ def main():
                 reward_vs = sum(opp_buffer) / len(opp_buffer) if len(opp_buffer) else 0
                 writer.add_scalar(f"reward-vs-{opp_name}", reward_vs, frame_idx)
 
-            if smoothed_reward > max(SAVE_MODEL_ABS_THRESHOLD,best_reward+SAVE_MODEL_REL_THRESHOLD):
-                agent.model.save(f"{agent.name}.keras")
+            if len(reward_buffer) == REWARD_BUFFER_SIZE and smoothed_reward > max(SAVE_MODEL_ABS_THRESHOLD,best_reward+SAVE_MODEL_REL_THRESHOLD):
+                agent.model.save(f"{agent.name}-{smoothed_reward}.keras")
                 best_reward = smoothed_reward
 
-        continue    # skip training until we code it properly
         # Don't start training the network until we have enough data
         if n_episodes_in_batch < BATCH_N_EPISODES:
             continue
@@ -142,31 +141,38 @@ def main():
 
         with tf.GradientTape() as tape:
 
-            logits = agent.model(x_train)
+            logits, state_values = agent.model(x_train)
+
+            # State stuff
+            #obs_advantage = batch_scales -  state_values
+            obs_advantage = batch_scales       # use 0 as baseline value
+
+            # Compute logits
             move_log_probs = tf.nn.log_softmax(logits)
             masked_log_probs = tf.multiply(move_log_probs,selected_move_mask)
             selected_log_probs = tf.reduce_sum(masked_log_probs, 1)
-            #print(batch_scales.shape)
-            #print(selected_log_probs.shape)
-            loss = - tf.tensordot(batch_scales,selected_log_probs,axes=1) / len(selected_log_probs)
-            writer.add_scalar("expectation-loss", loss.numpy(), frame_idx)
+            expectation_loss = - tf.tensordot(obs_advantage,selected_log_probs,axes=1) / len(selected_log_probs)
+            
 
             # Entropy component of loss
-            if ENTROPY_BETA:
-                move_probs = tf.nn.softmax(logits)
-                entropy_components = tf.multiply(move_probs, move_log_probs)
-                entropy_each_state = -tf.reduce_sum(entropy_components, 1)
-                entropy = tf.reduce_mean(entropy_each_state)
-                entropy_loss = -ENTROPY_BETA * entropy
-                loss += entropy_loss
-                writer.add_scalar("entropy-loss", entropy_loss.numpy(), frame_idx)
- 
+            move_probs = tf.nn.softmax(logits)
+            entropy_components = tf.multiply(move_probs, move_log_probs)
+            entropy_each_state = -tf.reduce_sum(entropy_components, 1)
+            entropy = tf.reduce_mean(entropy_each_state)
+            entropy_loss = -ENTROPY_BETA * entropy
+            loss = expectation_loss + entropy_loss
+        
+        writer.add_scalar("expectation-loss", expectation_loss.numpy(), frame_idx)
+        writer.add_scalar("entropy-loss", entropy_loss.numpy(), frame_idx)
         writer.add_scalar("loss", loss.numpy(), frame_idx)
-        grads = tape.gradient(loss, agent.model.trainable_variables)
-        optimizer.apply_gradients(zip(grads, agent.model.trainable_variables))
+
+        #grads = tape.gradient(loss,agent.model.trainable_variables)
+        #optimizer.apply_gradients(zip(grads, agent.model.trainable_variables))
+        grads = tape.gradient(loss,tape.watched_variables())
+        optimizer.apply_gradients(zip(grads, tape.watched_variables()))
         
         # calc KL-div
-        new_logits_v = agent.model(x_train)
+        new_logits_v, _ = agent.model(x_train)
         new_prob_v = tf.nn.softmax(new_logits_v)
         kl_div_v = -np.sum((np.log((new_prob_v / move_probs)) * move_probs), axis=1).mean()
         writer.add_scalar("kl", kl_div_v.item(), frame_idx)

@@ -59,6 +59,8 @@ def main():
     # Intialize players
     agent = DQNPlayer(name="Magnus")
     agent.initialize_model(NROWS,NCOLS,NPLAYERS)
+    agent.model.summary()
+    
     opponents = [RandomPlayer(name=f"RandomBot") for i in range(NCOLS)]
     opponents += [ColumnSpammer(name=f"CS-{i}",col_preference=i) for i in range(NCOLS)]
 
@@ -71,7 +73,7 @@ def main():
 
     mse_loss=MeanSquaredError()
     optimizer= Adam(learning_rate=LEARNING_RATE)
-    agent.model.summary()
+    
 
     writer = SummaryWriter()
     best_reward = 0
@@ -97,8 +99,8 @@ def main():
             if agent.random_weight > EPSILON_FINAL:
                 writer.add_scalar("epsilon", agent.random_weight, frame_idx)
 
-            if smoothed_reward > max(SAVE_MODEL_ABS_THRESHOLD,best_reward+SAVE_MODEL_REL_THRESHOLD):
-                agent.model.save("magnus.keras")
+            if len(reward_buffer) == REWARD_BUFFER_SIZE and smoothed_reward > max(SAVE_MODEL_ABS_THRESHOLD,best_reward+SAVE_MODEL_REL_THRESHOLD):
+                agent.model.save(f"magnus-{smoothed_reward}.keras")
                 best_reward = smoothed_reward
 
         # Don't start training the network until we have enough data

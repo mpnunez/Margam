@@ -15,7 +15,7 @@ class Player(ABC):
     
 class HumanPlayer(Player):
     requires_user_input = True
-    def get_move_scores_deterministic(self,board: np.array) -> np.array:
+    def get_move(self,board: np.array) -> np.array:
         n_cols = board.shape[2]
         invalid_input = True
         while invalid_input:
@@ -28,9 +28,7 @@ class HumanPlayer(Player):
             if 0 <= slot_to_drop and slot_to_drop < n_cols:
                 invalid_input = False
                 
-        scores = np.zeros(n_cols)
-        scores[slot_to_drop] = 1
-        return scores
+        return slot_to_drop
             
             
         
