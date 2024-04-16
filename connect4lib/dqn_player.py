@@ -1,5 +1,6 @@
 from connect4lib.player import Player
 import numpy as np
+import random
 
 from tensorflow import keras
 from tensorflow.keras import layers
@@ -23,7 +24,7 @@ class DQNPlayer(Player):
                 layers.MaxPooling2D(pool_size=(2, 2)),
                 layers.Flatten(),
                 layers.Dense(64, activation="relu"),
-                layers.Dense(n_cols, activation="linear",bias_initializer=keras.initializers.RandomNormal(mean=0.5, stddev=0.01, seed=None)),
+                layers.Dense(n_cols, activation="linear"),
             ]
         )
         self.target_network = keras.models.clone_model(self.model)

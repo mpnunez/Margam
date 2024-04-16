@@ -162,10 +162,10 @@ class Game:
             self.winner = self.current_player_ind
             self.game_data[-1].reward = self.WIN_REWARD
             for i in range(max(-len(self.players),-len(self.game_data)),-1):
-                self.game_data[i] = self.LOSS_REWARD
+                self.game_data[i].reward = self.LOSS_REWARD
         if player_tie:
-            for i in range(-len(self.players),0):
-                self.game_data[i] = self.TIE_REWARD
+            for i in range(max(-len(self.players),-len(self.game_data)),0):
+                self.game_data[i].reward = self.TIE_REWARD
         if self.status == GameStatus.INPROGRESS:
             self.move_ind += 1
             self.current_player_ind = self.move_ind % len(self.players)
