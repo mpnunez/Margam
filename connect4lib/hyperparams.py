@@ -6,7 +6,7 @@ NCONNECT = 4
 
 # Learning
 DISCOUNT_RATE = 0.97
-LEARNING_RATE = 1e-4
+LEARNING_RATE = 1e-3
 
 # Recording progress
 REWARD_BUFFER_SIZE = 1_000

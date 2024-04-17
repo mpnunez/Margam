@@ -92,7 +92,7 @@ def main():
         reward_buffer_vs[opp.name] = deque(maxlen=REWARD_BUFFER_SIZE//len(opponents))
 
     optimizer= Adam(learning_rate=LEARNING_RATE)
-    
+    mse_loss=MeanSquaredError()
     
 
     batch_states = []
@@ -124,7 +124,7 @@ def main():
                 writer.add_scalar(f"reward-vs-{opp_name}", reward_vs, frame_idx)
 
             if len(reward_buffer) == REWARD_BUFFER_SIZE and smoothed_reward > max(SAVE_MODEL_ABS_THRESHOLD,best_reward+SAVE_MODEL_REL_THRESHOLD):
-                agent.model.save(f"{agent.name}-{smoothed_reward}.keras")
+                agent.model.save(f"{agent.name}-AC-{smoothed_reward}.keras")
                 best_reward = smoothed_reward
 
         # Don't start training the network until we have enough data
@@ -142,15 +142,16 @@ def main():
         with tf.GradientTape() as tape:
 
             logits, state_values = agent.model(x_train)
+            state_values = state_values[:,0]
 
             # State stuff
-            #obs_advantage = batch_scales -  state_values
-            obs_advantage = batch_scales       # use 0 as baseline value
-
+            state_loss = mse_loss(batch_scales, state_values)
+            
             # Compute logits
             move_log_probs = tf.nn.log_softmax(logits)
             masked_log_probs = tf.multiply(move_log_probs,selected_move_mask)
             selected_log_probs = tf.reduce_sum(masked_log_probs, 1)
+            obs_advantage = batch_scales -  tf.stop_gradient(state_values)
             expectation_loss = - tf.tensordot(obs_advantage,selected_log_probs,axes=1) / len(selected_log_probs)
             
 
@@ -160,8 +161,11 @@ def main():
             entropy_each_state = -tf.reduce_sum(entropy_components, 1)
             entropy = tf.reduce_mean(entropy_each_state)
             entropy_loss = -ENTROPY_BETA * entropy
-            loss = expectation_loss + entropy_loss
+
+            # Sum the loss contributions
+            loss = state_loss + expectation_loss + entropy_loss
         
+        writer.add_scalar("state-loss", state_loss.numpy(), frame_idx)
         writer.add_scalar("expectation-loss", expectation_loss.numpy(), frame_idx)
         writer.add_scalar("entropy-loss", entropy_loss.numpy(), frame_idx)
         writer.add_scalar("loss", loss.numpy(), frame_idx)
