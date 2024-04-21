@@ -6,8 +6,6 @@ from tensorflow import keras
 from tensorflow.keras import layers
 from tensorflow.nn import softmax
 
-from typing import Tuple
-
 
 class PolicyPlayer(Player):
     
@@ -30,8 +28,8 @@ class PolicyPlayer(Player):
         
         self.model = keras.Model(inputs=nn_input, outputs=[logits_output,state_value_output], name="PGAC-model")
     
-    def get_move(self,board: np.array, options: List[int]) -> int:
+    def get_move(self,board: np.array, game) -> int:
         logits, state_value = self.model(board[np.newaxis,:])
         move_probabilities = softmax(logits[0])
-        selected_move = random.choices(options, weights=move_probabilities, k=1)[0]
+        selected_move = random.choices(game.options, weights=move_probabilities, k=1)[0]
         return selected_move

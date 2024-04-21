@@ -2,44 +2,62 @@ from connect4lib.agents.player import Player
 import numpy as np
 import random
 
-from typing import Tuple
+from typing import Tuple, Optional
 
 import copy
 
-class PolicyPlayer(Player):
+class MiniMax(Player):
+    """
+    Only works for 2 player games
+    """
     
-    def eval_state(state,depth=3):
+    def __init__(self,*args,**kwargs):
+        super().__init__(*args,**kwargs)
+        self.max_depth = 3
 
-        # max of moves we can do from here
+    def eval_state(
+        self,
+        board: np.array,
+        game,
+        depth=1,
+        current_player=0) -> Tuple[float, Optional[int]]:
+        """
+        Returns a tuple with
+        - The value of the current board for player 0
+        - The best move to be taken for current agent
+        """
 
-        if is_winning(state):
-            return 1
-        if is_losing(state):
-            return -1
-        
-        legal_moves = get_legal_moves()
-        next_states = {i: transform_state(board_move)
-            for i in legal_moves}
+        # Need to implement
+        # 1. Detecting if player 0 or 1 has won
+        # 2. Modifying the board when current player does BLANK move
 
-        possible_results = []
-        for move in range(7):
-            state = board.transform(move)
-            resulting_boards = []
-            for op_move in range(7):
-                state = board.transform(op_move)
-                value = eval_state(state,depth-1)
-                resulting_boards.append((value, state))
-            worst_val, worst_next_state = min(resulting_boards)
-            possible_results.append(worst_val, worst_next_state)
-        best_val, best_next_state = max(possible_results)
-                
+        # Check if either player has won
+        if game.check_win(board,0):
+            return (1, None)
+        if game.check_win(board,1):
+            return (-1, None)
+        if depth <= 0:
+            return (0, None)      # Neither player can force a win
 
-        if depth == 0:
+        move_values = []
+        for move in game.options:
+            board_result = game.drop_in_slot(board,current_player,move)
+            if board_result is None:
+                continue
+            new_depth = depth if current_player==0 else depth-1
+            value, _ = self.eval_state(board_result, game, new_depth, 1 - current_player)
+            move_values.append((value, move))
 
+        if len(move_values) == 0:
+            return (0,None)
 
-    
-    def get_move(self,board: np.array, options: List[int]) -> int:
-        
-        # Choose best move through recursion
+        print(move_values)
+        move_values = sorted(move_values)
+        if current_player == 0:
+            return move_values[-1]
+        else:
+            return move_values[0]
 
-        return 0
+    def get_move(self, board: np.array, game) -> int:
+        value, move = self.eval_state(board,game,depth=self.max_depth)
+        return move

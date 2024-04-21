@@ -31,9 +31,9 @@ class DQNPlayer(Player):
         self.target_network.set_weights(self.model.get_weights())
 
     
-    def get_move(self,board: np.array, options: List[int]) -> int:
+    def get_move(self,board: np.array, game) -> int:
         q_values = self.model.predict_on_batch(board)[0]
         max_q_ind = np.argmax(q_values)
         if (self.random_weight != 0) and (np.random.random() < self.random_weight):
-            return random.choice(options)
+            return random.choice(game.options)
         return options[max_q_ind]
