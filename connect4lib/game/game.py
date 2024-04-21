@@ -4,12 +4,14 @@ from connect4lib.transition import Transition
 from enum import Enum
 import random
 
+from abc import ABC, abstractmethod
+
 class GameStatus(Enum):
     NOTSTARTED = 1
     INPROGRESS = 2
     COMPLETE = 3
 
-class Game:
+class Game(ABC):
     def __init__(self,nrows=6,ncols=7,nconnectwins=4):
         self.nrows = nrows
         self.ncols = ncols
@@ -94,38 +96,22 @@ class Game:
     def check_win(self,player: int) -> bool:
         return self._check_horizontal_win(player) or self._check_vertical_win(player) or self._check_diagonal_ll_ur_win(player) or self._check_diagonal_ul_lr_win(player)
     
+    @abstractmethod
     def drop_in_slot(self,player: int, col: int):
-        row_to_drop = self.nrows-1
-        while row_to_drop>=0:
-            if np.sum(self.board[:,row_to_drop,col]) == 0:
-                self.board[player,row_to_drop,col] = 1
-                return
-            row_to_drop -= 1
-            
-        raise Connect4Exception(f"No empty slot in column {col}")
+        pass
     
     def show_board(self):
         display_board = sum((i+1)*self.board[i,:,:] for i in range(len(self.board)))
         print(display_board)
         print()
-        
+
+    @abstractmethod   
     def get_legal_illegal_moves(self):
-        return [i for i in range(self.ncols) if np.sum(self.board[:,0,i]) == 0], [i for i in range(self.ncols) if np.sum(self.board[:,0,i]) > 0]
+        pass
 
+    @abstractmethod
     def get_player_move(self,player,board_player_pov):
-        """
-        Get the move desired by the player
-
-        If it is an illegal move, choose a random
-        legal move for the player
-        """
-        
-        legal_moves, _ = self.get_legal_illegal_moves()
-        player_desired_move = player.get_move(board_player_pov)
-        if player_desired_move in legal_moves:
-            return player_desired_move
-
-        return random.choice(legal_moves)
+        pass
 
         
     
@@ -187,11 +173,11 @@ class Game:
         return self.winner, self.game_data
                 
     def finish_game(self):
-        if self.verbose:
-            self.show_board()
-            if self.winner == -1:
-                print("Game was a draw")
-            else:
-                print(f"Player {self.players[self.winner].name} won!")
+        if not self.verbose:
+            return
             
-        
+        self.show_board()
+        if self.winner == -1:
+            print("Game was a draw")
+        else:
+            print(f"Player {self.players[self.winner].name} won!")

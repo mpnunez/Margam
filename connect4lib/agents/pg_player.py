@@ -1,4 +1,4 @@
-from connect4lib.player import Player
+from connect4lib.agents.player import Player
 import numpy as np
 import random
 
@@ -8,7 +8,6 @@ from tensorflow.nn import softmax
 
 from typing import Tuple
 
-import copy
 
 class PolicyPlayer(Player):
     
@@ -31,9 +30,8 @@ class PolicyPlayer(Player):
         
         self.model = keras.Model(inputs=nn_input, outputs=[logits_output,state_value_output], name="PGAC-model")
     
-    def get_move(self,board: np.array) -> np.array:
-        n_cols = board.shape[2]
-        logits, state_value = self.model(board.swapaxes(0,1).swapaxes(1,2)[np.newaxis,:])
+    def get_move(self,board: np.array, options: List[int]) -> int:
+        logits, state_value = self.model(board[np.newaxis,:])
         move_probabilities = softmax(logits[0])
-        selected_move = random.choices(range(n_cols), weights=move_probabilities, k=1)[0]
+        selected_move = random.choices(options, weights=move_probabilities, k=1)[0]
         return selected_move
