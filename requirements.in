@@ -3,4 +3,5 @@ keras
 pyqt5<5.12
 tqdm
 tensorboardX --no-cache-dir
+click
 
