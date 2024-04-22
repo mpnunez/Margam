@@ -20,7 +20,9 @@ class HumanPlayer(Player):
         
         valid_input = False
         while not valid_input:
-            print("\nAvailable moves:")
+            print("\nBoard state")
+            game.show_board()
+            print("Available moves:")
             print(game.options)
             new_input = input(f"Select a move:")
             

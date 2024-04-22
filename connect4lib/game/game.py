@@ -170,8 +170,6 @@ class Game(ABC):
 
 
     def next_player_make_move(self):
-        if self.verbose:
-            self.show_board()
         next_move = self.get_next_player_move()
         self.move_next_player_with(next_move)
     
@@ -181,15 +179,11 @@ class Game(ABC):
         while self.status == GameStatus.INPROGRESS:
             self.next_player_make_move()
             
-        self.finish_game()
+        if self.verbose:
+            self.show_board()
+            if self.winner == -1:
+                print("Game was a draw")
+            else:
+                print(f"Player {self.players[self.winner].name} won!")
+
         return self.winner, self.game_data
-                
-    def finish_game(self):
-        if not self.verbose:
-            return
-            
-        self.show_board()
-        if self.winner == -1:
-            print("Game was a draw")
-        else:
-            print(f"Player {self.players[self.winner].name} won!")

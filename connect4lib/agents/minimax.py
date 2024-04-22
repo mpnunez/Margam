@@ -44,14 +44,12 @@ class MiniMax(Player):
             board_result = game.drop_in_slot(board,current_player,move)
             if board_result is None:
                 continue
-            new_depth = depth if current_player==0 else depth-1
-            value, _ = self.eval_state(board_result, game, new_depth, 1 - current_player)
+            value, _ = self.eval_state(board_result, game, depth-1, 1 - current_player)
             move_values.append((value, move))
 
         if len(move_values) == 0:
             return (0,None)
 
-        print(move_values)
         move_values = sorted(move_values)
         if current_player == 0:
             return move_values[-1]
