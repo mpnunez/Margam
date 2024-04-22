@@ -1,4 +1,4 @@
-from connect4lib.player import Player
+from connect4lib.gents.player import Player
 import numpy as np
 import random
 
@@ -13,7 +13,7 @@ class DQNPlayer(Player):
         super().__init__(*args,**kwargs)
         self.model = None
         self.target_network = None
-        self.random_weight = kwargs.get("random_weight",0)
+        self.random_weight = 0
     
     def initialize_model(self,n_rows,n_cols,n_players):
         input_shape = (n_rows,n_cols,n_players)
@@ -31,9 +31,9 @@ class DQNPlayer(Player):
         self.target_network.set_weights(self.model.get_weights())
 
     
-    def get_move(self,board: np.array) -> int:
-        q_values = self.model.predict_on_batch(board.swapaxes(0,1).swapaxes(1,2)[np.newaxis,:])[0]
+    def get_move(self,board: np.array, game) -> int:
+        q_values = self.model.predict_on_batch(board)[0]
         max_q_ind = np.argmax(q_values)
         if (self.random_weight != 0) and (np.random.random() < self.random_weight):
-            return random.choice(range(board.shape[2]))
-        return max_q_ind
+            return random.choice(game.options)
+        return options[max_q_ind]
