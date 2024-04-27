@@ -5,10 +5,8 @@ import itertools
 from collections import deque
 from functools import partial
 
-from connect4lib.game.tictactoe import TicTacToe
-from connect4lib.game.connect4 import Connect4
-from connect4lib.agents.player import RandomPlayer, HumanPlayer
-from connect4lib.agents.minimax import MiniMax
+from connect4lib.game import TicTacToe, Connect4
+from connect4lib.agents import RandomPlayer, HumanPlayer, MiniMax
 
 import click
 

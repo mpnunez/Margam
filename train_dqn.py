@@ -12,9 +12,10 @@ from tensorflow.keras.optimizers import Adam
 from tensorboardX import SummaryWriter
 from keras.models import load_model
 
-from connect4lib.game import Game
-from connect4lib.player import RandomPlayer, ColumnSpammer
-from connect4lib.dqn_player import DQNPlayer
+from connect4lib.game import Connect4, TicTacToe
+from connect4lib.agents import RandomPlayer, ColumnSpammer
+from connect4lib.agents import DQNPlayer
+from connect4lib.agents.dqn_player import MiniMax
 from connect4lib.hyperparams import *
 
 
@@ -32,7 +33,7 @@ def generate_transitions(agent, opponents):
         agent_position = i%2
         opponent_position = (agent_position+1)%2
         
-        g = Game(nrows=NROWS,ncols=NCOLS,nconnectwins=NCONNECT)
+        g = TicTacToe(nrows=NROWS,ncols=NCOLS,nconnectwins=NCONNECT)
         g.players = [None,None]
         g.players[agent_position] = agent        # Alternate being player 1/2
         g.players[opponent_position] = opponent   
@@ -61,9 +62,7 @@ def main():
     agent.initialize_model(NROWS,NCOLS,NPLAYERS)
     agent.model.summary()
     
-    opponents = [RandomPlayer(name=f"RandomBot") for i in range(NCOLS)]
-    opponents += [ColumnSpammer(name=f"CS-{i}",col_preference=i) for i in range(NCOLS)]
-
+    opponents = []
 
     experience_buffer = deque(maxlen=REPLAY_SIZE)
     reward_buffer = deque(maxlen=REWARD_BUFFER_SIZE)

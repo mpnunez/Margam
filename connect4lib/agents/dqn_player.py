@@ -1,4 +1,4 @@
-from connect4lib.gents.player import Player
+from connect4lib.agents.player import Player
 import numpy as np
 import random
 
@@ -9,11 +9,11 @@ import copy
 
 class DQNPlayer(Player):
     
-    def __init__(self,*args,**kwargs):
+    def __init__(self,*args,random_weight=0,**kwargs):
         super().__init__(*args,**kwargs)
         self.model = None
         self.target_network = None
-        self.random_weight = 0
+        self.random_weight = random_weight
     
     def initialize_model(self,n_rows,n_cols,n_players):
         input_shape = (n_rows,n_cols,n_players)
