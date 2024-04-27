@@ -29,7 +29,29 @@ class TicTacToe(Game):
                 else:
                     illegal_moves.append(ind)
         return legal_moves, illegal_moves
-
     
+    def get_symmetric_transitions(self, tsn):
+        return
+    """
+        yield tsn
+        yield Transition(
+                board_state = tsn.board_state[:,::-1,:]
+                selected_move = ??
+                reward = tsn.reward
+                resulting_state = tsn.resulting_state[:,::-1,:]
+            )
+        yield Transition(
+                board_state = tsn.board_state[::-1,:,:]
+                selected_move = ??
+                reward = tsn.reward
+                resulting_state = tsn.resulting_state[::-1,:,:]
+            )
+        yield Transition(
+                board_state = tsn.board_state[::-1,::-1,:]
+                selected_move = ??
+                reward = tsn.reward
+                resulting_state = tsn.resulting_state[::-1,::-1,:]
+            )
+    """
 
     

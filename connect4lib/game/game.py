@@ -124,8 +124,6 @@ class Game(ABC):
             return player_desired_move
 
         return random.choice(legal_moves)
-
-        
     
     def start_game(self):
         self.board = np.zeros([self.nrows,self.ncols,len(self.players)])
@@ -187,3 +185,11 @@ class Game(ABC):
                 print(f"Player {self.players[self.winner].name} won!")
 
         return self.winner, self.game_data
+
+    @abstractmethod
+    def drop_in_slot(self, board, player: int, move: int):
+        pass
+
+    @abstractmethod
+    def get_symmetric_transitions(self, tsn):
+        pass

@@ -15,8 +15,8 @@ from keras.models import load_model
 from connect4lib.game import Connect4, TicTacToe
 from connect4lib.agents import RandomPlayer, ColumnSpammer
 from connect4lib.agents import DQNPlayer
-from connect4lib.agents.dqn_player import MiniMax
-from connect4lib.hyperparams import *
+from connect4lib.agents import MiniMax
+from hyperparams import *
 
 
 
@@ -59,10 +59,10 @@ def main():
     
     # Intialize players
     agent = DQNPlayer(name="Magnus")
-    agent.initialize_model(NROWS,NCOLS,NPLAYERS)
+    agent.initialize_model(NROWS,NCOLS,NPLAYERS,NOUTPUTS)
     agent.model.summary()
     
-    opponents = []
+    opponents = [MiniMax(max_depth=2)]
 
     experience_buffer = deque(maxlen=REPLAY_SIZE)
     reward_buffer = deque(maxlen=REWARD_BUFFER_SIZE)
@@ -99,7 +99,7 @@ def main():
                 writer.add_scalar("epsilon", agent.random_weight, frame_idx)
 
             if len(reward_buffer) == REWARD_BUFFER_SIZE and smoothed_reward > max(SAVE_MODEL_ABS_THRESHOLD,best_reward+SAVE_MODEL_REL_THRESHOLD):
-                agent.model.save(f"magnus-{smoothed_reward}.keras")
+                agent.model.save(f"magnus-DQN-{smoothed_reward}.keras")
                 best_reward = smoothed_reward
 
         # Don't start training the network until we have enough data
@@ -110,20 +110,20 @@ def main():
 
         # Make X and Y
         x_train = np.array([mr.board_state for mr in training_data])
-        x_train = x_train.swapaxes(1,2).swapaxes(2,3)
+        
 
         # Bellman equation part
         # Take maximum Q(s',a') of board states we end up in
         non_terminal_states = np.array([mr.resulting_state is not None for mr in training_data])
         resulting_boards = np.array([mr.resulting_state if mr.resulting_state is not None else np.zeros(transition.board_state.shape) for mr in training_data])
-        resulting_board_q = agent.target_network.predict_on_batch(resulting_boards.swapaxes(1,2).swapaxes(2,3))
+        resulting_board_q = agent.target_network.predict_on_batch(resulting_boards)
         max_qs = np.max(resulting_board_q,axis=1)
         rewards = np.array([mr.reward for mr in training_data])
         q_to_train_single_values = rewards + DISCOUNT_RATE * np.multiply(non_terminal_states,max_qs)
 
         # Needed for our mask
         selected_moves = [mr.selected_move for mr in training_data]
-        selected_move_mask = one_hot(selected_moves, NCOLS)
+        selected_move_mask = one_hot(selected_moves, NOUTPUTS)
         
         # Compute MSE loss based on chosen move values only
         with tf.GradientTape() as tape:

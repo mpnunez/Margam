@@ -15,16 +15,14 @@ class DQNPlayer(Player):
         self.target_network = None
         self.random_weight = random_weight
     
-    def initialize_model(self,n_rows,n_cols,n_players):
+    def initialize_model(self,n_rows,n_cols,n_players,n_ouputs):
         input_shape = (n_rows,n_cols,n_players)
         self.model = keras.Sequential(
             [
                 keras.Input(shape=input_shape),
-                layers.Conv2D(64, 4),
-                layers.MaxPooling2D(pool_size=(2, 2)),
                 layers.Flatten(),
                 layers.Dense(64, activation="relu"),
-                layers.Dense(n_cols, activation="linear"),
+                layers.Dense(n_ouputs, activation="linear"),
             ]
         )
         self.target_network = keras.models.clone_model(self.model)
@@ -32,8 +30,8 @@ class DQNPlayer(Player):
 
     
     def get_move(self,board: np.array, game) -> int:
-        q_values = self.model.predict_on_batch(board)[0]
+        q_values = self.model.predict_on_batch(board[np.newaxis,:])[0]
         max_q_ind = np.argmax(q_values)
         if (self.random_weight != 0) and (np.random.random() < self.random_weight):
             return random.choice(game.options)
-        return options[max_q_ind]
+        return game.options[max_q_ind]

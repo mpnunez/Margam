@@ -135,7 +135,7 @@ def main():
         # Chosen moves
         selected_move_mask = one_hot(batch_actions, NCOLS)
         x_train = np.array(batch_states)
-        x_train = x_train.swapaxes(1,2).swapaxes(2,3)
+        
 
         batch_scales = np.array(batch_scales).astype('float32')
 
