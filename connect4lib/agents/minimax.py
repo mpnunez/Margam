@@ -1,3 +1,4 @@
+from collections import defaultdict
 from connect4lib.agents.player import Player
 import numpy as np
 import random
@@ -11,9 +12,9 @@ class MiniMax(Player):
     Only works for 2 player games
     """
     
-    def __init__(self,*args,**kwargs):
+    def __init__(self,*args,max_depth=3,**kwargs):
         super().__init__(*args,**kwargs)
-        self.max_depth = 3
+        self.max_depth = max_depth
 
     def eval_state(
         self,
@@ -33,28 +34,28 @@ class MiniMax(Player):
 
         # Check if either player has won
         if game.check_win(board,0):
-            return (1, None)
+            return (game.WIN_REWARD, None)
         if game.check_win(board,1):
-            return (-1, None)
+            return (game.LOSS_REWARD, None)
         if depth <= 0:
-            return (0, None)      # Neither player can force a win
+            return (game.TIE_REWARD, None)      # Neither player can force a win
 
-        move_values = []
+        move_values = defaultdict(list)
         for move in game.options:
             board_result = game.drop_in_slot(board,current_player,move)
             if board_result is None:
                 continue
             value, _ = self.eval_state(board_result, game, depth-1, 1 - current_player)
-            move_values.append((value, move))
+            move_values[value].append(move)
 
         if len(move_values) == 0:
-            return (0,None)
+            return (game.TIE_REWARD,None)
 
-        move_values = sorted(move_values)
         if current_player == 0:
-            return move_values[-1]
+            move_value = max(move_values.keys())
         else:
-            return move_values[0]
+            move_value = min(move_values.keys())
+        return move_value, random.choice(move_values[move_value])
 
     def get_move(self, board: np.array, game) -> int:
         value, move = self.eval_state(board,game,depth=self.max_depth)
