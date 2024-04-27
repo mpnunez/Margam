@@ -12,10 +12,10 @@ from tensorflow.keras.optimizers import Adam
 from tensorboardX import SummaryWriter
 from keras.models import load_model
 
-from connect4lib.game import Game
-from connect4lib.player import RandomPlayer, ColumnSpammer
-from connect4lib.pg_player import PolicyPlayer
-from connect4lib.hyperparams import *
+from connect4lib.game import TicTacToe
+from connect4lib.agents import RandomPlayer, ColumnSpammer
+from connect4lib.agents import ReinforcePlayer, MiniMax
+from hyperparams import *
 
 
 def generate_transitions(agent, opponents):
@@ -31,7 +31,7 @@ def generate_transitions(agent, opponents):
         agent_position = i%2
         opponent_position = (agent_position+1)%2
         
-        g = Game(nrows=NROWS,ncols=NCOLS,nconnectwins=NCONNECT)
+        g = TicTacToe(nrows=NROWS,ncols=NCOLS,nconnectwins=NCONNECT)
         g.players = [None,None]
         g.players[agent_position] = agent        # Alternate being player 1/2
         g.players[opponent_position] = opponent   
@@ -79,13 +79,11 @@ def generate_transitions_pg(agent, opponents):
 def main():
     
     # Intialize players
-    agent = PolicyPlayer(name="Magnus-PG")
-    agent.initialize_model(NROWS,NCOLS,NPLAYERS)
+    agent = ReinforcePlayer(name="Magnus-reinforce")
+    agent.initialize_model(NROWS,NCOLS,NPLAYERS,NOUTPUTS)
     agent.model.summary()
 
-    opponents = [RandomPlayer(name=f"RandomBot") for i in range(NCOLS)]
-    opponents += [ColumnSpammer(name=f"CS-{i}",col_preference=i) for i in range(NCOLS)]
-
+    opponents = [MiniMax(name="Minnie",max_depth=1)]
     reward_buffer = deque(maxlen=REWARD_BUFFER_SIZE)
     reward_buffer_vs = {}
     for opp in opponents:
@@ -119,12 +117,13 @@ def main():
             move_distribution = move_distribution / move_distribution.sum()
             #print(f"Move distribution: {move_distribution}")
             writer.add_scalar("Average reward", smoothed_reward, frame_idx)
+            writer.add_scalar("Win rate", (smoothed_reward+1)/2, frame_idx)
             for opp_name, opp_buffer in reward_buffer_vs.items():
                 reward_vs = sum(opp_buffer) / len(opp_buffer) if len(opp_buffer) else 0
                 writer.add_scalar(f"reward-vs-{opp_name}", reward_vs, frame_idx)
 
             if len(reward_buffer) == REWARD_BUFFER_SIZE and smoothed_reward > max(SAVE_MODEL_ABS_THRESHOLD,best_reward+SAVE_MODEL_REL_THRESHOLD):
-                agent.model.save(f"{agent.name}-AC-{smoothed_reward}.keras")
+                agent.model.save(f"{agent.name}-reinforce.keras")
                 best_reward = smoothed_reward
 
         # Don't start training the network until we have enough data
@@ -133,7 +132,7 @@ def main():
 
         
         # Chosen moves
-        selected_move_mask = one_hot(batch_actions, NCOLS)
+        selected_move_mask = one_hot(batch_actions, NOUTPUTS)
         x_train = np.array(batch_states)
         
 
@@ -141,17 +140,19 @@ def main():
 
         with tf.GradientTape() as tape:
 
-            logits, state_values = agent.model(x_train)
-            state_values = state_values[:,0]
+            #logits, state_values = agent.model(x_train)    # for AC
+            logits = agent.model(x_train)
+            #state_values = state_values[:,0]
 
             # State stuff
-            state_loss = mse_loss(batch_scales, state_values)
+            # state_loss = mse_loss(batch_scales, state_values) # for AC
             
             # Compute logits
             move_log_probs = tf.nn.log_softmax(logits)
             masked_log_probs = tf.multiply(move_log_probs,selected_move_mask)
             selected_log_probs = tf.reduce_sum(masked_log_probs, 1)
-            obs_advantage = batch_scales -  tf.stop_gradient(state_values)
+            #obs_advantage = batch_scales -  tf.stop_gradient(state_values) # for AC
+            obs_advantage = batch_scales
             expectation_loss = - tf.tensordot(obs_advantage,selected_log_probs,axes=1) / len(selected_log_probs)
             
 
@@ -163,9 +164,10 @@ def main():
             entropy_loss = -ENTROPY_BETA * entropy
 
             # Sum the loss contributions
-            loss = state_loss + expectation_loss + entropy_loss
+            loss = expectation_loss + entropy_loss
+            # loss += state_loss    # for AC
         
-        writer.add_scalar("state-loss", state_loss.numpy(), frame_idx)
+        #writer.add_scalar("state-loss", state_loss.numpy(), frame_idx) # for AC
         writer.add_scalar("expectation-loss", expectation_loss.numpy(), frame_idx)
         writer.add_scalar("entropy-loss", entropy_loss.numpy(), frame_idx)
         writer.add_scalar("loss", loss.numpy(), frame_idx)
@@ -176,7 +178,8 @@ def main():
         optimizer.apply_gradients(zip(grads, tape.watched_variables()))
         
         # calc KL-div
-        new_logits_v, _ = agent.model(x_train)
+        # new_logits_v, _ = agent.model(x_train)  # for AC
+        new_logits_v = agent.model(x_train)
         new_prob_v = tf.nn.softmax(new_logits_v)
         kl_div_v = -np.sum((np.log((new_prob_v / move_probs)) * move_probs), axis=1).mean()
         writer.add_scalar("kl", kl_div_v.item(), frame_idx)

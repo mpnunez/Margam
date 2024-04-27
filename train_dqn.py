@@ -62,7 +62,8 @@ def main():
     agent.initialize_model(NROWS,NCOLS,NPLAYERS,NOUTPUTS)
     agent.model.summary()
     
-    opponents = [MiniMax(max_depth=2)]
+    g = TicTacToe(nrows=NROWS,ncols=NCOLS,nconnectwins=NCONNECT)
+    opponents = [MiniMax(name="Minnie",max_depth=1)]
 
     experience_buffer = deque(maxlen=REPLAY_SIZE)
     reward_buffer = deque(maxlen=REWARD_BUFFER_SIZE)
@@ -92,6 +93,7 @@ def main():
             move_distribution = move_distribution / move_distribution.sum()
             #print(f"Move distribution: {move_distribution}")
             writer.add_scalar("Average reward", smoothed_reward, frame_idx)
+            writer.add_scalar("Win rate", (smoothed_reward+1)/2, frame_idx)
             for opp_name, opp_buffer in reward_buffer_vs.items():
                 reward_vs = sum(opp_buffer) / len(opp_buffer) if len(opp_buffer) else 0
                 writer.add_scalar(f"reward-vs-{opp_name}", reward_vs, frame_idx)
@@ -99,7 +101,7 @@ def main():
                 writer.add_scalar("epsilon", agent.random_weight, frame_idx)
 
             if len(reward_buffer) == REWARD_BUFFER_SIZE and smoothed_reward > max(SAVE_MODEL_ABS_THRESHOLD,best_reward+SAVE_MODEL_REL_THRESHOLD):
-                agent.model.save(f"magnus-DQN-{smoothed_reward}.keras")
+                agent.model.save(f"magnus-DQN.keras")
                 best_reward = smoothed_reward
 
         # Don't start training the network until we have enough data
@@ -107,6 +109,7 @@ def main():
             continue
 
         training_data = sample_experience_buffer(experience_buffer,BATCH_SIZE)
+        #training_data = list(itertools.chain(*[g.get_symmetric_transitions(mr) for mr in training_data]))
 
         # Make X and Y
         x_train = np.array([mr.board_state for mr in training_data])

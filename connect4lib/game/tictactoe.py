@@ -32,8 +32,9 @@ class TicTacToe(Game):
     
     def get_symmetric_transitions(self, tsn):
         return
-    """
+    
         yield tsn
+    """
         yield Transition(
                 board_state = tsn.board_state[:,::-1,:]
                 selected_move = ??
