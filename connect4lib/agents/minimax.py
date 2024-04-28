@@ -10,6 +10,12 @@ import copy
 class MiniMax(Player):
     """
     Only works for 2 player games
+
+    Depth 0: random player
+    Depth 1: Always makes winning move if available
+    Depth 2: Blocks opponent from winning on next move
+    Depth 3: Sets up forced win on next move
+    etc.
     """
     
     def __init__(self,*args,max_depth=3,**kwargs):
@@ -28,23 +34,19 @@ class MiniMax(Player):
         - The best move to be taken for current agent
         """
 
-        # Need to implement
-        # 1. Detecting if player 0 or 1 has won
-        # 2. Modifying the board when current player does BLANK move
-
-        # Check if either player has won
         if game.check_win(board,0):
             return (game.WIN_REWARD, None)
         if game.check_win(board,1):
             return (game.LOSS_REWARD, None)
         if depth <= 0:
-            return (game.TIE_REWARD, None)      # Neither player can force a win
+            return (game.TIE_REWARD, random.choice(game.options))      # Neither player can force a win
 
         move_values = defaultdict(list)
         for move in game.options:
             board_result = game.drop_in_slot(board,current_player,move)
             if board_result is None:
                 continue
+            
             value, _ = self.eval_state(board_result, game, depth-1, 1 - current_player)
             move_values[value].append(move)
 
