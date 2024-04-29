@@ -1,5 +1,6 @@
 from connect4lib.utils import Connect4Exception
 from connect4lib.game.game import Game
+from connect4lib.transition import Transition
 import numpy as np
 
 class TicTacToe(Game):
@@ -31,28 +32,39 @@ class TicTacToe(Game):
         return legal_moves, illegal_moves
     
     def get_symmetric_transitions(self, tsn):
-        return
-    
+
+        row = tsn.selected_move // self.nrows
+        col = tsn.selected_move % self.nrows
         yield tsn
-    """
+
+        new_row = row
+        new_col = (self.ncols-1) - col
+        new_move = self.ncols*new_row+new_col
         yield Transition(
-                board_state = tsn.board_state[:,::-1,:]
-                selected_move = ??
-                reward = tsn.reward
-                resulting_state = tsn.resulting_state[:,::-1,:]
+                board_state = tsn.board_state[:,::-1,:],
+                selected_move = new_move,
+                reward = tsn.reward,
+                resulting_state = tsn.resulting_state[:,::-1,:],
             )
+
+        new_row = (self.nrows-1) - row
+        new_col = col
+        new_move = self.ncols*new_row+new_col
         yield Transition(
-                board_state = tsn.board_state[::-1,:,:]
-                selected_move = ??
-                reward = tsn.reward
-                resulting_state = tsn.resulting_state[::-1,:,:]
+                board_state = tsn.board_state[::-1,:,:],
+                selected_move = new_move,
+                reward = tsn.reward,
+                resulting_state = tsn.resulting_state[::-1,:,:],
             )
+
+        new_row = (self.nrows-1) - row
+        new_col = (self.ncols-1) - col
+        new_move = self.ncols*new_row+new_col
         yield Transition(
-                board_state = tsn.board_state[::-1,::-1,:]
-                selected_move = ??
-                reward = tsn.reward
-                resulting_state = tsn.resulting_state[::-1,::-1,:]
+                board_state = tsn.board_state[::-1,::-1,:],
+                selected_move = new_move,
+                reward = tsn.reward,
+                resulting_state = tsn.resulting_state[::-1,::-1,:],
             )
-    """
 
     

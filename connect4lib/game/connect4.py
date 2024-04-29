@@ -1,5 +1,6 @@
 from connect4lib.utils import Connect4Exception
 from connect4lib.game.game import Game
+from connect4lib.transition import Transition
 
 import numpy as np
 from typing import List
