@@ -6,7 +6,7 @@ from collections import deque
 from functools import partial
 
 from connect4lib.game import TicTacToe, Connect4
-from connect4lib.agents import RandomPlayer, HumanPlayer, MiniMax, ReinforcePlayer
+from connect4lib.agents import HumanPlayer, MiniMax, ReinforcePlayer, PolicyPlayer
 
 from keras.models import load_model
 
@@ -16,31 +16,57 @@ game_classes = {
     "tictactoe": TicTacToe,
     "connect4": Connect4,
 }
-oppenents = {
-    "minimax": MiniMax(name="Maximum",max_depth=2),
-    "pg": ReinforcePlayer(name="Rein"),
-}
 
 @click.command()
 @click.option('-g', '--game-type',
     type=click.Choice(['tictactoe', 'connect4'],
     case_sensitive=False),
     default="tictactoe",
-    show_default=True)
+    show_default=True,
+    help="game type")
 @click.option('-o', '--opponent',
-    type=click.Choice(['minimax', 'pg'],
+    type=click.Choice(['minimax','dqn', 'pg', 'pgac'],
     case_sensitive=False),
     default="pg",
-    show_default=True)
-def main(game_type,opponent):
+    show_default=True,
+    help="opponent type")
+@click.option('-d', '--depth',
+    type=int,
+    default=2,
+    show_default=True,
+    help="Depth for minimax")
+@click.option('-m', '--model',
+    type=str,
+    default=None,
+    help="Model file to load for AI player",
+)
+@click.option("--second",
+    is_flag=True,
+    default=False,
+    help="Play as second player")
+def main(game_type,opponent,depth,model,second):
     # Enable choosing opponent with CLI
     
     # Intialize players
-    agent = HumanPlayer(name="Marcel")
-    opponent = ReinforcePlayer(name="Rein")
-    opponent.model = load_model("reinforce-tic.keras")
+    human = HumanPlayer(name="Marcel")
+
+    if opponent.lower() == "minimax":
+        opponent = MiniMax(name="Maximus",max_depth=depth)
+    elif opponent.lower() == "pg":
+        opponent = ReinforcePlayer(name="PG")
+        opponent.model = load_model(model)
+        opponent.model.summary()
+    elif opponent.lower() == "dqn":
+        opponent = ReinforcePlayer(name="DQN")
+        opponent.model = load_model(model)
+        opponent.model.summary()
+    elif opponent.lower() == "pgac":
+        opponent = PolicyPlayer(name="PGAC")
+        opponent.model = load_model(model)
+        opponent.model.summary()
+
     g = game_classes[game_type.lower()]()
-    g.players = [opponent,agent]
+    g.players = [opponent,human] if second else [human,opponent]
     g.verbose = True
     winner, records = g.play_game()
 
