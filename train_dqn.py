@@ -143,7 +143,11 @@ def sample_experience_buffer(buffer,batch_size):
     default="tictactoe",
     show_default=True,
     help="game type")
-def main(symmetry,game_type):
+@click.option("--double-dqn","-d",
+    is_flag=True,
+    default=True,
+    help="Use double DQN")
+def main(symmetry,game_type,double_dqn):
     
     # Intialize model
     agent = DQNPlayer(name="Magnus")
@@ -227,8 +231,20 @@ def main(symmetry,game_type):
         # Take maximum Q(s',a') of board states we end up in
         non_terminal_states = np.array([mr.resulting_state is not None for mr in training_data])
         resulting_boards = np.array([mr.resulting_state if mr.resulting_state is not None else np.zeros(transition.board_state.shape) for mr in training_data])
-        resulting_board_q = target_network.predict_on_batch(resulting_boards)
-        max_qs = np.max(resulting_board_q,axis=1)
+        
+        # Double DQN - Use on policy network to choose best move
+        #   and target network to evaluate the Q-value
+        # Single DQN - Just take max target network Q to be max Q
+        resulting_board_q_target = target_network.predict_on_batch(resulting_boards)
+        if double_dqn:
+            resulting_board_q_on_policy = agent.model.predict_on_batch(resulting_boards)
+            max_move_inds_on_policy = resulting_board_q_on_policy.argmax(axis=1)
+            on_policy_move_mask = tf.one_hot(max_move_inds_on_policy,depth=NOUTPUTS)
+            target_qs_for_on_policy_moves = tf.multiply(resulting_board_q_target, on_policy_move_mask)
+            max_qs = tf.reduce_sum(target_qs_for_on_policy_moves, 1)
+        else:
+            max_qs = np.max(resulting_board_q_target,axis=1)
+
         rewards = np.array([mr.reward for mr in training_data])
         q_to_train_single_values = rewards + DISCOUNT_RATE * np.multiply(non_terminal_states,max_qs)
 
