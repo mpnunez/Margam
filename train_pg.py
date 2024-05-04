@@ -15,8 +15,54 @@ from keras.models import load_model
 from connect4lib.game import TicTacToe
 from connect4lib.agents import RandomPlayer, ColumnSpammer
 from connect4lib.agents import ReinforcePlayer, MiniMax
-from hyperparams import *
 
+
+# Game hyperparameters
+
+GAME_TYPE = "TicTacToe"
+#GAME_TYPE = "Connect4"
+
+if GAME_TYPE == "Connect4":
+    NROWS = 6
+    NCOLS = 7
+    NPLAYERS = 2
+    NCONNECT = 4
+    NOUTPUTS = NCOLS
+
+    # Learning
+    DISCOUNT_RATE = 0.97
+    LEARNING_RATE = 1e-3
+
+    # Recording progress
+    REWARD_BUFFER_SIZE = 1_000
+    RECORD_HISTOGRAMS = 1_000
+    SAVE_MODEL_ABS_THRESHOLD = 0.20
+    SAVE_MODEL_REL_THRESHOLD = 0.01
+
+    # Policy gradient
+    BATCH_N_EPISODES = 4
+    ENTROPY_BETA = 0.1
+
+elif GAME_TYPE == "TicTacToe":
+    NROWS = 3
+    NCOLS = 3
+    NPLAYERS = 2
+    NCONNECT = 3
+    NOUTPUTS = NROWS*NCOLS
+
+    # Learning
+    DISCOUNT_RATE = 0.97
+    LEARNING_RATE = 1e-4
+
+    # Recording progress
+    REWARD_BUFFER_SIZE = 1_000
+    RECORD_HISTOGRAMS = 1_000
+    SAVE_MODEL_ABS_THRESHOLD = -0.6
+    SAVE_MODEL_REL_THRESHOLD = 0.01
+
+    # Policy gradient
+    BATCH_N_EPISODES = 4
+    ENTROPY_BETA = 0.1
 
 def generate_transitions(agent, opponents):
     """

@@ -7,6 +7,7 @@ from functools import partial
 
 from connect4lib.game import TicTacToe, Connect4
 from connect4lib.agents import HumanPlayer, MiniMax, ReinforcePlayer, PolicyPlayer
+from train_dqn import 
 
 from keras.models import load_model
 
@@ -57,11 +58,11 @@ def main(game_type,opponent,depth,model,second):
         opponent.model = load_model(model)
         opponent.model.summary()
     elif opponent.lower() == "dqn":
-        opponent = ReinforcePlayer(name="DQN")
+        opponent = DQNPlayer(name="DQN")
         opponent.model = load_model(model)
         opponent.model.summary()
     elif opponent.lower() == "pgac":
-        opponent = PolicyPlayer(name="PGAC")
+        opponent = PolicyACPlayer(name="PGAC")
         opponent.model = load_model(model)
         opponent.model.summary()
 

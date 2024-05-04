@@ -13,11 +13,88 @@ from tensorboardX import SummaryWriter
 from keras.models import load_model
 
 from connect4lib.game import Connect4, TicTacToe
-from connect4lib.agents import RandomPlayer, ColumnSpammer
-from connect4lib.agents import DQNPlayer
 from connect4lib.agents import MiniMax
-from hyperparams import *
 
+
+from connect4lib.agents.player import Player
+import numpy as np
+import random
+
+from tensorflow import keras
+from tensorflow.keras import layers
+
+import click
+
+GAME_TYPE = "TicTacToe"
+#GAME_TYPE = "Connect4"
+
+if GAME_TYPE == "Connect4":
+    NROWS = 6
+    NCOLS = 7
+    NPLAYERS = 2
+    NCONNECT = 4
+    NOUTPUTS = NCOLS
+
+    # Learning
+    DISCOUNT_RATE = 0.97
+    LEARNING_RATE = 1e-3
+
+    # Recording progress
+    REWARD_BUFFER_SIZE = 1_000
+    RECORD_HISTOGRAMS = 1_000
+    SAVE_MODEL_ABS_THRESHOLD = 0.20
+    SAVE_MODEL_REL_THRESHOLD = 0.01
+
+    # DQN
+    BATCH_SIZE = 32             
+    REPLAY_SIZE = 10_000
+    SYNC_TARGET_NETWORK = 1_000
+    REPLAY_START_SIZE = 10_000
+    EPSILON_DECAY_LAST_FRAME = 5e4
+    EPSILON_START = 1.0
+    EPSILON_FINAL = 0.02
+
+elif GAME_TYPE == "TicTacToe":
+    NROWS = 3
+    NCOLS = 3
+    NPLAYERS = 2
+    NCONNECT = 3
+    NOUTPUTS = NROWS*NCOLS
+
+    # Learning
+    DISCOUNT_RATE = 0.97
+    LEARNING_RATE = 1e-4
+
+    # Recording progress
+    REWARD_BUFFER_SIZE = 1_000
+    RECORD_HISTOGRAMS = 1_000
+    SAVE_MODEL_ABS_THRESHOLD = -0.6
+    SAVE_MODEL_REL_THRESHOLD = 0.01
+
+    # DQN
+    BATCH_SIZE = 32             
+    REPLAY_SIZE = 1_000
+    SYNC_TARGET_NETWORK = 1_00
+    REPLAY_START_SIZE = 1_000
+    EPSILON_DECAY_LAST_FRAME = 3e4
+    EPSILON_START = 1.0
+    EPSILON_FINAL = 0.02
+
+class DQNPlayer(Player):
+    
+    def __init__(self,*args,random_weight=0,**kwargs):
+        super().__init__(*args,**kwargs)
+        self.model = None
+        self.random_weight = random_weight
+    
+    def get_move(self,board: np.array, game) -> int:
+        if np.random.random() < self.random_weight:
+            return random.choice(game.options)
+            
+        q_values = self.model.predict_on_batch(board[np.newaxis,:])[0]
+        max_q_ind = np.argmax(q_values)
+        
+        return game.options[max_q_ind]
 
 
 def generate_transitions(agent, opponents):
@@ -55,12 +132,34 @@ def sample_experience_buffer(buffer,batch_size):
         
 
 
-def main():
+@click.command()
+@click.option("--symmetry","-s",
+    is_flag=True,
+    default=False,
+    help="Include symmetries in training")
+@click.option('-g', '--game-type',
+    type=click.Choice(['tictactoe', 'connect4'],
+    case_sensitive=False),
+    default="tictactoe",
+    show_default=True,
+    help="game type")
+def main(symmetry,game_type):
     
-    # Intialize players
+    # Intialize model
     agent = DQNPlayer(name="Magnus")
-    agent.initialize_model(NROWS,NCOLS,NPLAYERS,NOUTPUTS)
+    input_shape = (NROWS,NCOLS,NPLAYERS)
+    nn_input = keras.Input(shape=input_shape)
+    x = layers.Flatten()(nn_input)
+    x = layers.Dense(32, activation="relu")(x)
+    x = layers.Dense(16, activation="relu")(x)
+    q_values = layers.Dense(NOUTPUTS, activation="linear")(x)
+    agent.model = keras.Model(
+        inputs=nn_input,
+        outputs=q_values,
+        name="DQN-model")
     agent.model.summary()
+    target_network = keras.models.clone_model(agent.model)
+    target_network.set_weights(agent.model.get_weights())
     
     g = TicTacToe(nrows=NROWS,ncols=NCOLS,nconnectwins=NCONNECT)
     opponents = [MiniMax(name="Minnie",max_depth=1)]
@@ -77,28 +176,36 @@ def main():
 
     writer = SummaryWriter()
     best_reward = 0
-    for frame_idx, (transition, opponent) in enumerate(generate_transitions(agent, opponents)):
+    for step, (transition, opponent) in enumerate(generate_transitions(agent, opponents)):
 
         experience_buffer.append(transition)
 
-        agent.random_weight = max(EPSILON_FINAL, EPSILON_START - frame_idx / EPSILON_DECAY_LAST_FRAME)
+        agent.random_weight = max(EPSILON_FINAL, EPSILON_START - step / EPSILON_DECAY_LAST_FRAME)
 
         # Compute average reward
         if transition.resulting_state is None:
             reward_buffer.append(transition.reward)
             reward_buffer_vs[opponent.name].append(transition.reward)
             smoothed_reward = sum(reward_buffer) / len(reward_buffer)
+            win_rate = sum(r == g.WIN_REWARD for r in reward_buffer) / len(reward_buffer)
+            tie_rate = sum(r == g.TIE_REWARD for r in reward_buffer) / len(reward_buffer)
+            loss_rate = sum(r == g.LOSS_REWARD for r in reward_buffer) / len(reward_buffer)
             move_distribution = [mr.selected_move for mr in experience_buffer]
-            move_distribution = np.array([move_distribution.count(i) for i in range(7)])
+            move_distribution = np.array([move_distribution.count(i) for i in range(NOUTPUTS)])
+            for i in range(NOUTPUTS):
+                f = move_distribution[i] / sum(move_distribution)
+                writer.add_scalar(f"Fraction choice {i}", f, step)
             move_distribution = move_distribution / move_distribution.sum()
             #print(f"Move distribution: {move_distribution}")
-            writer.add_scalar("Average reward", smoothed_reward, frame_idx)
-            writer.add_scalar("Win rate", (smoothed_reward+1)/2, frame_idx)
+            writer.add_scalar("Average reward", smoothed_reward, step)
+            writer.add_scalar("Win rate", win_rate, step)
+            writer.add_scalar("Tie rate", tie_rate, step)
+            writer.add_scalar("Loss rate", loss_rate, step)
             for opp_name, opp_buffer in reward_buffer_vs.items():
                 reward_vs = sum(opp_buffer) / len(opp_buffer) if len(opp_buffer) else 0
-                writer.add_scalar(f"reward-vs-{opp_name}", reward_vs, frame_idx)
+                writer.add_scalar(f"reward-vs-{opp_name}", reward_vs, step)
             if agent.random_weight > EPSILON_FINAL:
-                writer.add_scalar("epsilon", agent.random_weight, frame_idx)
+                writer.add_scalar("epsilon", agent.random_weight, step)
 
             if len(reward_buffer) == REWARD_BUFFER_SIZE and smoothed_reward > max(SAVE_MODEL_ABS_THRESHOLD,best_reward+SAVE_MODEL_REL_THRESHOLD):
                 agent.model.save(f"magnus-DQN.keras")
@@ -109,7 +216,8 @@ def main():
             continue
 
         training_data = sample_experience_buffer(experience_buffer,BATCH_SIZE)
-        #training_data = list(itertools.chain(*[g.get_symmetric_transitions(mr) for mr in training_data]))
+        if symmetry:
+            training_data = list(itertools.chain(*[g.get_symmetric_transitions(mr) for mr in training_data]))
 
         # Make X and Y
         x_train = np.array([mr.board_state for mr in training_data])
@@ -119,7 +227,7 @@ def main():
         # Take maximum Q(s',a') of board states we end up in
         non_terminal_states = np.array([mr.resulting_state is not None for mr in training_data])
         resulting_boards = np.array([mr.resulting_state if mr.resulting_state is not None else np.zeros(transition.board_state.shape) for mr in training_data])
-        resulting_board_q = agent.target_network.predict_on_batch(resulting_boards)
+        resulting_board_q = target_network.predict_on_batch(resulting_boards)
         max_qs = np.max(resulting_board_q,axis=1)
         rewards = np.array([mr.reward for mr in training_data])
         q_to_train_single_values = rewards + DISCOUNT_RATE * np.multiply(non_terminal_states,max_qs)
@@ -140,13 +248,13 @@ def main():
         optimizer.apply_gradients(zip(grads, agent.model.trainable_variables))
         
         # Record prediction error
-        writer.add_scalar("loss", loss_value.numpy(), frame_idx)
-        if frame_idx % RECORD_HISTOGRAMS == 0:
-            writer.add_histogram("q-error",q_prediction_errors.numpy(),frame_idx)
+        writer.add_scalar("loss", loss_value.numpy(), step)
+        if step % RECORD_HISTOGRAMS == 0:
+            writer.add_histogram("q-error",q_prediction_errors.numpy(),step)
 
         # Update policy
-        if frame_idx % SYNC_TARGET_NETWORK == 0:
-            agent.target_network.set_weights(agent.model.get_weights())
+        if step % SYNC_TARGET_NETWORK == 0:
+            target_network.set_weights(agent.model.get_weights())
 
     writer.close()
 
