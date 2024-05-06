@@ -62,21 +62,21 @@ elif GAME_TYPE == "TicTacToe":
     NOUTPUTS = NROWS*NCOLS
 
     # Learning
-    DISCOUNT_RATE = 0.97
+    DISCOUNT_RATE = 0.90
     LEARNING_RATE = 1e-4
 
     # Recording progress
     REWARD_BUFFER_SIZE = 1_000
     RECORD_HISTOGRAMS = 1_000
-    SAVE_MODEL_ABS_THRESHOLD = -0.6
+    SAVE_MODEL_ABS_THRESHOLD = 0
     SAVE_MODEL_REL_THRESHOLD = 0.01
 
     # DQN
     BATCH_SIZE = 32             
-    REPLAY_SIZE = 1_000
-    SYNC_TARGET_NETWORK = 1_00
-    REPLAY_START_SIZE = 1_000
-    EPSILON_DECAY_LAST_FRAME = 3e4
+    REPLAY_SIZE = 10_000
+    SYNC_TARGET_NETWORK = 1_000
+    REPLAY_START_SIZE = 10_000
+    EPSILON_DECAY_LAST_FRAME = 1e5
     EPSILON_START = 1.0
     EPSILON_FINAL = 0.02
 
@@ -155,7 +155,7 @@ def main(symmetry,game_type,double_dqn):
     nn_input = keras.Input(shape=input_shape)
     x = layers.Flatten()(nn_input)
     x = layers.Dense(32, activation="relu")(x)
-    x = layers.Dense(16, activation="relu")(x)
+    #x = layers.Dense(16, activation="relu")(x)
     q_values = layers.Dense(NOUTPUTS, activation="linear")(x)
     agent.model = keras.Model(
         inputs=nn_input,
@@ -164,7 +164,7 @@ def main(symmetry,game_type,double_dqn):
     agent.model.summary()
     target_network = keras.models.clone_model(agent.model)
     target_network.set_weights(agent.model.get_weights())
-    
+
     g = TicTacToe(nrows=NROWS,ncols=NCOLS,nconnectwins=NCONNECT)
     opponents = [MiniMax(name="Minnie",max_depth=1)]
 
@@ -234,7 +234,7 @@ def main(symmetry,game_type,double_dqn):
         
         # Double DQN - Use on policy network to choose best move
         #   and target network to evaluate the Q-value
-        # Single DQN - Just take max target network Q to be max Q
+        # Single DQN - Take max target network Q to be max Q
         resulting_board_q_target = target_network.predict_on_batch(resulting_boards)
         if double_dqn:
             resulting_board_q_on_policy = agent.model.predict_on_batch(resulting_boards)
