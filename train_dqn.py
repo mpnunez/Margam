@@ -20,6 +20,8 @@ from connect4lib.agents.player import Player
 import numpy as np
 import random
 
+from connect4lib.transition import Transition
+
 from tensorflow import keras
 from tensorflow.keras import layers
 
@@ -80,6 +82,8 @@ elif GAME_TYPE == "TicTacToe":
     EPSILON_START = 1.0
     EPSILON_FINAL = 0.02
 
+N_TD = 2        # temporal difference learning look-ahead
+
 class DQNPlayer(Player):
     
     def __init__(self,*args,random_weight=0,**kwargs):
@@ -119,7 +123,23 @@ def generate_transitions(agent, opponents):
         winner, records = g.play_game()
         agent_records = records[agent_position::len(g.players)]
 
-        for move_record in agent_records:
+        agent_records_td = []
+        for i, tr in enumerate(agent_records):
+            td_tsn = Transition(
+                board_state = tr.board_state,
+                selected_move = tr.selected_move,
+                reward = tr.reward,
+            )
+            
+            for j in range(i+1, min( len(agent_records), i+N_TD) ):
+                td_tsn.reward += agent_records[j].reward * DISCOUNT_RATE ** (j-i)
+
+            if i + N_TD < len(agent_records):
+                td_tsn.resulting_state = agent_records[i+N_TD].board_state
+
+            agent_records_td.append(td_tsn)
+
+        for move_record in agent_records_td:
             yield move_record, opponent
 
 
@@ -246,7 +266,7 @@ def main(symmetry,game_type,double_dqn):
             max_qs = np.max(resulting_board_q_target,axis=1)
 
         rewards = np.array([mr.reward for mr in training_data])
-        q_to_train_single_values = rewards + DISCOUNT_RATE * np.multiply(non_terminal_states,max_qs)
+        q_to_train_single_values = rewards + (DISCOUNT_RATE**N_TD) * np.multiply(non_terminal_states,max_qs)
 
         # Needed for our mask
         selected_moves = [mr.selected_move for mr in training_data]
