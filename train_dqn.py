@@ -276,8 +276,13 @@ def main(symmetry,game_type,double_dqn):
             weights_and_biases_flat = np.concatenate([v.numpy().flatten() for v in agent.model.variables])
             writer.add_histogram("weights and biases",weights_and_biases_flat,step)
 
+            # Track gradient variance
             grads_flat = np.concatenate([v.numpy().flatten() for v in grads])
             writer.add_histogram("gradients",grads_flat,step)
+            grad_rmse = np.sqrt( np.mean( grads_flat ** 2 ) )
+            writer.add_scalar("grad_rmse", grad_rmse, step)
+            grad_max = np.abs(grads_flat).max()
+            writer.add_scalar("grad_max", grad_max, step)
 
             weights_and_biases_delta = weights_and_biases_flat - weights_and_biases_flat_before_update
             writer.add_histogram("weight-bias-updates",weights_and_biases_delta,step)

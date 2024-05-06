@@ -230,6 +230,14 @@ def main():
         kl_div_v = -np.sum((np.log((new_prob_v / move_probs)) * move_probs), axis=1).mean()
         writer.add_scalar("kl", kl_div_v.item(), frame_idx)
 
+        # Track gradient variance
+        grads_flat = np.concatenate([v.numpy().flatten() for v in grads])
+        writer.add_histogram("gradients",grads_flat,step)
+        grad_rmse = np.sqrt( np.mean( grads_flat ** 2 ) )
+        writer.add_scalar("grad_rmse", grad_rmse, step)
+        grad_max = np.abs(grads_flat).max()
+        writer.add_scalar("grad_max", grad_max, step)
+
         # Reset sampling
         batch_states = []
         batch_actions = []
