@@ -167,16 +167,31 @@ def sample_experience_buffer(buffer,batch_size):
     is_flag=True,
     default=True,
     help="Use double DQN")
-def main(symmetry,game_type,double_dqn):
+@click.option("--deuling-dqn","-u",
+    is_flag=True,
+    default=True,
+    help="Use deuling DQN")
+def main(symmetry,game_type,double_dqn,deuling_dqn):
     
     # Intialize model
     agent = DQNPlayer(name="Magnus")
     input_shape = (NROWS,NCOLS,NPLAYERS)
     nn_input = keras.Input(shape=input_shape)
-    x = layers.Flatten()(nn_input)
-    x = layers.Dense(32, activation="relu")(x)
+    input_flat = layers.Flatten()(nn_input)
+    x = layers.Dense(32, activation="relu")(input_flat)
     #x = layers.Dense(16, activation="relu")(x)
     q_values = layers.Dense(NOUTPUTS, activation="linear")(x)
+
+    # Deuling DQN adds a second column to the neural net that
+    # computes state value V(s) and interprets the Q
+    # values as advantage of that action in that state
+    # Q(s,a) = A(s,a) + V(s)
+    # Final output is the same so it is interoperable with vanilla DQN
+    if deuling_dqn:
+        x_sv = layers.Dense(32, activation="relu")(input_flat)
+        sv = layers.Dense(1, activation="linear")(x_sv)
+        q_values = q_values - tf.math.reduce_mean(q_values,axis=1,keepdims=True) + sv
+
     agent.model = keras.Model(
         inputs=nn_input,
         outputs=q_values,
