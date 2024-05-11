@@ -3,7 +3,6 @@ import numpy as np
 from enum import Enum
 import itertools
 from collections import deque
-from functools import partial
 
 import tensorflow as tf
 from tensorflow import one_hot
@@ -11,11 +10,21 @@ from tensorflow.keras.losses import MeanSquaredError
 from tensorflow.keras.optimizers import Adam
 from tensorboardX import SummaryWriter
 from keras.models import load_model
+from tensorflow import keras
+from tensorflow.keras import layers
+from tensorflow.nn import softmax
 
 from connect4lib.game import TicTacToe
 from connect4lib.agents import RandomPlayer, ColumnSpammer
 from connect4lib.agents import ReinforcePlayer, MiniMax
 
+from connect4lib.agents.player import Player
+import numpy as np
+import random
+
+
+
+import click
 
 # Game hyperparameters
 
@@ -63,6 +72,25 @@ elif GAME_TYPE == "TicTacToe":
     # Policy gradient
     BATCH_N_EPISODES = 4
     ENTROPY_BETA = 0.1
+
+
+
+
+class PolicyPlayer(Player):
+    
+    def __init__(self,*args,**kwargs):
+        super().__init__(*args,**kwargs)
+        self.model = None
+        self.actor_critic = False
+    
+    def get_move(self,board: np.array, game) -> int:
+        logits = self.model(board[np.newaxis,:])
+        if self.actor_critic:
+            logits, state_value = logits
+        move_probabilities = softmax(logits[0])
+        selected_move = random.choices(game.options, weights=move_probabilities, k=1)[0]
+        return selected_move
+
 
 def generate_transitions(agent, opponents):
     """
@@ -121,12 +149,43 @@ def generate_transitions_pg(agent, opponents):
         episode_transitions = []
         q_values = []
 
-
-def main():
+@click.command()
+@click.option("--symmetry","-s",
+    is_flag=True,
+    default=False,
+    help="Include symmetries in training")
+@click.option('-g', '--game-type',
+    type=click.Choice(['tictactoe', 'connect4'],
+    case_sensitive=False),
+    default="tictactoe",
+    show_default=True,
+    help="game type")
+@click.option("--actor-critic","-a",
+    is_flag=True,
+    default=False,
+    help="Use double DQN")
+def main(symmetry,game_type,actor_critic):
     
     # Intialize players
-    agent = ReinforcePlayer(name="Magnus-reinforce")
-    agent.initialize_model(NROWS,NCOLS,NPLAYERS,NOUTPUTS)
+    agent = PolicyPlayer(name="Magnus-reinforce")
+    agent.actor_critic = actor_critic
+    input_shape = (NROWS,NCOLS,NPLAYERS,NOUTPUTS)
+    nn_input = keras.Input(shape=input_shape)
+    x = layers.Conv2D(64, 4)(nn_input)
+    x = layers.MaxPooling2D(pool_size=(2, 2))(x)
+    model_trunk_f = layers.Flatten()(x)
+    
+    x = layers.Dense(64, activation="relu")(model_trunk_f)
+    logits_output = layers.Dense(n_cols, activation="linear")(x)
+    nn_outputs = logits_output
+
+    if agent.actor_critic:
+        x = layers.Dense(64, activation="relu")(model_trunk_f)
+        state_value_output = layers.Dense(1, activation="linear")(x)
+        nn_outputs = [logits_output,state_value_output]
+
+    agent.model = keras.Model(inputs=nn_input, outputs=nn_outputs, name="policy-model")
+
     agent.model.summary()
 
     opponents = [MiniMax(name="Minnie",max_depth=1)]
