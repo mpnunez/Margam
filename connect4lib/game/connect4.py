@@ -28,8 +28,8 @@ class Connect4(Game):
     def get_symmetric_transitions(self, tsn):
         yield tsn
         yield Transition(
-                board_state = tsn.board_state[:,::-1,:],
+                state = tsn.state[:,::-1,:],
                 selected_move = (self.ncols-1) - tsn.selected_move,
                 reward = tsn.reward,
-                resulting_state = tsn.resulting_state[:,::-1,:],
+                next_state = tsn.next_state[:,::-1,:],
             )

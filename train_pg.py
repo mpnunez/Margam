@@ -130,7 +130,7 @@ def generate_transitions_pg(agent, opponents):
 
         episode_transitions.append(transition)
 
-        if transition.resulting_state is not None:
+        if transition.next_state is not None:
             continue
 
         # Assign q-values based on unrolling to final state
@@ -207,12 +207,12 @@ def main(symmetry,game_type,actor_critic):
     best_reward = 0
     for frame_idx, (transition, q_value, opponent) in enumerate(generate_transitions_pg(agent, opponents)):
 
-        batch_states.append(transition.board_state)
+        batch_states.append(transition.state)
         batch_actions.append(transition.selected_move)
         batch_scales.append(q_value)
 
         # Compute average reward
-        if transition.resulting_state is None:
+        if transition.next_state is None:
             n_episodes_in_batch += 1
             reward_buffer.append(transition.reward)
             reward_buffer_vs[opponent.name].append(transition.reward)

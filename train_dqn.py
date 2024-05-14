@@ -126,7 +126,7 @@ def generate_transitions(agent, opponents):
         agent_records_td = []
         for i, tr in enumerate(agent_records):
             td_tsn = Transition(
-                board_state = tr.board_state,
+                state = tr.state,
                 selected_move = tr.selected_move,
                 reward = tr.reward,
             )
@@ -135,7 +135,7 @@ def generate_transitions(agent, opponents):
                 td_tsn.reward += agent_records[j].reward * DISCOUNT_RATE ** (j-i)
 
             if i + N_TD < len(agent_records):
-                td_tsn.resulting_state = agent_records[i+N_TD].board_state
+                td_tsn.next_state = agent_records[i+N_TD].state
 
             agent_records_td.append(td_tsn)
 
@@ -222,7 +222,7 @@ def main(symmetry,game_type,double_dqn,deuling_dqn):
         agent.random_weight = max(EPSILON_FINAL, EPSILON_START - step / EPSILON_DECAY_LAST_FRAME)
 
         # Compute average reward
-        if transition.resulting_state is None:
+        if transition.next_state is None:
             reward_buffer.append(transition.reward)
             reward_buffer_vs[opponent.name].append(transition.reward)
             smoothed_reward = sum(reward_buffer) / len(reward_buffer)
@@ -259,13 +259,13 @@ def main(symmetry,game_type,double_dqn,deuling_dqn):
             training_data = list(itertools.chain(*[g.get_symmetric_transitions(mr) for mr in training_data]))
 
         # Make X and Y
-        x_train = np.array([mr.board_state for mr in training_data])
+        x_train = np.array([mr.state for mr in training_data])
         
 
         # Bellman equation part
         # Take maximum Q(s',a') of board states we end up in
-        non_terminal_states = np.array([mr.resulting_state is not None for mr in training_data])
-        resulting_boards = np.array([mr.resulting_state if mr.resulting_state is not None else np.zeros(transition.board_state.shape) for mr in training_data])
+        non_terminal_states = np.array([mr.next_state is not None for mr in training_data])
+        resulting_boards = np.array([mr.next_state if mr.next_state is not None else np.zeros(transition.state.shape) for mr in training_data])
         
         # Double DQN - Use on policy network to choose best move
         #   and target network to evaluate the Q-value

@@ -138,7 +138,7 @@ class Game(ABC):
         player_move = self.get_player_move(player,board_player_pov)
 
         move_record = Transition(
-            board_state = board_player_pov,
+            state = board_player_pov,
             selected_move = player_move,
             )
         self.game_data.append(move_record)
@@ -153,7 +153,7 @@ class Game(ABC):
         game_over = player_won or player_tie
         self.status = GameStatus.COMPLETE if game_over else self.status
         if len(self.game_data) >= 2 and not game_over:
-            self.game_data[-2].resulting_state = self.get_board_from_player_pov((self.current_player_ind-1)%len(self.players))
+            self.game_data[-2].next_state = self.get_board_from_player_pov((self.current_player_ind-1)%len(self.players))
         if player_won:
             self.winner = self.current_player_ind
             self.game_data[-1].reward = self.WIN_REWARD

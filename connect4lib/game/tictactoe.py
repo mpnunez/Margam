@@ -41,30 +41,30 @@ class TicTacToe(Game):
         new_col = (self.ncols-1) - col
         new_move = self.ncols*new_row+new_col
         yield Transition(
-                board_state = tsn.board_state[:,::-1,:],
+                state = tsn.state[:,::-1,:],
                 selected_move = new_move,
                 reward = tsn.reward,
-                resulting_state = tsn.resulting_state[:,::-1,:],
+                next_state = tsn.next_state[:,::-1,:],
             )
 
         new_row = (self.nrows-1) - row
         new_col = col
         new_move = self.ncols*new_row+new_col
         yield Transition(
-                board_state = tsn.board_state[::-1,:,:],
+                state = tsn.state[::-1,:,:],
                 selected_move = new_move,
                 reward = tsn.reward,
-                resulting_state = tsn.resulting_state[::-1,:,:],
+                next_state = tsn.next_state[::-1,:,:],
             )
 
         new_row = (self.nrows-1) - row
         new_col = (self.ncols-1) - col
         new_move = self.ncols*new_row+new_col
         yield Transition(
-                board_state = tsn.board_state[::-1,::-1,:],
+                state = tsn.state[::-1,::-1,:],
                 selected_move = new_move,
                 reward = tsn.reward,
-                resulting_state = tsn.resulting_state[::-1,::-1,:],
+                next_state = tsn.next_state[::-1,::-1,:],
             )
 
     
