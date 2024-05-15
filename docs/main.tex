@@ -1,0 +1,92 @@
+\documentclass[12pt]{article}
+\usepackage{lingmacros}
+\usepackage{tree-dvips}
+\usepackage{listings}
+
+\title{Reinforcement Learning for Games}
+\author{Marcel Nunez}
+
+\begin{document}
+
+	\maketitle
+	
+	\section{Introduction}
+	
+	Reinforcement learning (RL).
+	
+	\section{The Algorithms}
+	
+	\begin{itemize}
+		\item Deep Q-network (DQN)
+		\item Double DQN
+		\item Dueling DQN
+		\item Policy gradient
+		\item Policy gradient with actor critic
+	\end{itemize}
+	
+	\section{Diagnostics}
+	
+	Tensorboard is indispensable for RL training.
+	
+	\begin{itemize}
+		\item Loss
+		\item Components of loss (e.g. entropy)
+		\item Neural network weights and bias histogram
+		\item Gradient histogram
+		\item Norm of gradients (e.g. L0, L2)
+		\item KL divergence of PG policy change
+	\end{itemize}
+	
+	If weights or loss are exploding, then training
+	should be stopped because the training is diverging.
+	
+	\section{Learnings}
+	
+	Q-value predictions keep blowing up for DQN
+	Unless I use tanh to artificially constrain the Q-value predictions
+	
+	Large bad Q + MSE cost function -> huge gradient requested
+	Do we need to do gradient clipping?
+	Are the weight values oscillating out of control?
+	
+	
+	
+	Q-error has some big outliers
+	NN is not changing much
+	Is it being reinforced by errors near 0?
+	
+	
+	Decreasing discount factor seems to have helped.
+	
+	Try increasing n in TD learning so the bias of the TD estimates is reduced.
+	MC Variance should not be a huge issue because a lot of the games look the same.
+	
+	\section{Opponents}
+	
+	It is important to have a reasonable opponent to play against. If the opponent is too hard, then the agent will not observe rewards that guide it to better performance. If the opponent is too easy (e.g. random player), then the agent will learn simple strategies to beat it and stick to that, even if the strategy is not great in general. For example, it is easy to beat a random Connect4 player by always dropping in the same column. Often the agent can get 4 in a row without the random player blocking it and take a quick victory. However, any decent player can block that.
+	
+	What I found to be good is to implement a minimax player and train the agent against it wit the minimax depth set to 1 or 2. If the minimax player can win in the next turn, it does. Otherwise, it behaves randomly. 
+	
+	\section{Policy Gradient}
+	
+	Policy gradient is easy to understand intuitively. We are just trying to maximize expected reward. So we can derive the formula.
+	
+	Policy gradient tends to be more stable, but plateaus when there is entropy collapse.
+	
+	\subsection{Entropy Collapse}
+	
+	Entropy reduces and the agent becomes too certain about its moves. Then the following tensorflow warning appears. When this happens, the expectation loss diverges. 
+	
+	\begin{lstlisting}
+		NaN or Inf found in input tensor.
+	\end{lstlisting}
+	
+	\begin{lstlisting}[language=python]
+		import tensorflow as tf
+	\end{lstlisting}
+	
+	For Tic-Tac-Toe, the expected returns are well balanced around 0, so there is not much variance in the gradients. We do not expect actor-critic to help us much to give us a better baseline for expected return. In fact, the error in the bootstrapped value can cause more issues than it solves.
+	
+	# Add bibliography
+	
+\end{document}
