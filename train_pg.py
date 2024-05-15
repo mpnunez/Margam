@@ -16,7 +16,7 @@ from tensorflow.nn import softmax
 
 from connect4lib.game import TicTacToe
 from connect4lib.agents import RandomPlayer, ColumnSpammer
-from connect4lib.agents import ReinforcePlayer, MiniMax
+from connect4lib.agents import MiniMax
 
 from connect4lib.agents.player import Player
 import numpy as np
@@ -66,7 +66,7 @@ elif GAME_TYPE == "TicTacToe":
     # Recording progress
     REWARD_BUFFER_SIZE = 1_000
     RECORD_HISTOGRAMS = 1_000
-    SAVE_MODEL_ABS_THRESHOLD = -0.6
+    SAVE_MODEL_ABS_THRESHOLD = 0
     SAVE_MODEL_REL_THRESHOLD = 0.01
 
     # Policy gradient
@@ -86,7 +86,7 @@ class PolicyPlayer(Player):
     def get_move(self,board: np.array, game) -> int:
         logits = self.model(board[np.newaxis,:])
         if self.actor_critic:
-            logits, state_value = logits
+            logits, _ = logits
         move_probabilities = softmax(logits[0])
         selected_move = random.choices(game.options, weights=move_probabilities, k=1)[0]
         return selected_move
@@ -167,16 +167,16 @@ def generate_transitions_pg(agent, opponents):
 def main(symmetry,game_type,actor_critic):
     
     # Intialize players
-    agent = PolicyPlayer(name="Magnus-reinforce")
+    agent = PolicyPlayer(name="VanillaPG")
     agent.actor_critic = actor_critic
-    input_shape = (NROWS,NCOLS,NPLAYERS,NOUTPUTS)
+    input_shape = (NROWS,NCOLS,NPLAYERS)
     nn_input = keras.Input(shape=input_shape)
-    x = layers.Conv2D(64, 4)(nn_input)
-    x = layers.MaxPooling2D(pool_size=(2, 2))(x)
-    model_trunk_f = layers.Flatten()(x)
     
-    x = layers.Dense(64, activation="relu")(model_trunk_f)
-    logits_output = layers.Dense(n_cols, activation="linear")(x)
+    input_flat = layers.Flatten()(nn_input)
+    model_trunk_f  = input_flat
+
+    x = layers.Dense(32, activation="relu")(model_trunk_f)
+    logits_output = layers.Dense(NOUTPUTS, activation="linear")(x)
     nn_outputs = logits_output
 
     if agent.actor_critic:
@@ -205,7 +205,7 @@ def main(symmetry,game_type,actor_critic):
 
     writer = SummaryWriter()
     best_reward = 0
-    for frame_idx, (transition, q_value, opponent) in enumerate(generate_transitions_pg(agent, opponents)):
+    for step, (transition, q_value, opponent) in enumerate(generate_transitions_pg(agent, opponents)):
 
         batch_states.append(transition.state)
         batch_actions.append(transition.selected_move)
@@ -220,15 +220,14 @@ def main(symmetry,game_type,actor_critic):
             move_distribution = batch_actions
             move_distribution = np.array([move_distribution.count(i) for i in range(7)])
             move_distribution = move_distribution / move_distribution.sum()
-            #print(f"Move distribution: {move_distribution}")
-            writer.add_scalar("Average reward", smoothed_reward, frame_idx)
-            writer.add_scalar("Win rate", (smoothed_reward+1)/2, frame_idx)
+            writer.add_scalar("Average reward", smoothed_reward, step)
+            writer.add_scalar("Win rate", (smoothed_reward+1)/2, step)
             for opp_name, opp_buffer in reward_buffer_vs.items():
                 reward_vs = sum(opp_buffer) / len(opp_buffer) if len(opp_buffer) else 0
-                writer.add_scalar(f"reward-vs-{opp_name}", reward_vs, frame_idx)
+                writer.add_scalar(f"reward-vs-{opp_name}", reward_vs, step)
 
             if len(reward_buffer) == REWARD_BUFFER_SIZE and smoothed_reward > max(SAVE_MODEL_ABS_THRESHOLD,best_reward+SAVE_MODEL_REL_THRESHOLD):
-                agent.model.save(f"{agent.name}-reinforce.keras")
+                agent.model.save(f"{agent.name}.keras")
                 best_reward = smoothed_reward
 
         # Don't start training the network until we have enough data
@@ -245,19 +244,19 @@ def main(symmetry,game_type,actor_critic):
 
         with tf.GradientTape() as tape:
 
-            #logits, state_values = agent.model(x_train)    # for AC
             logits = agent.model(x_train)
-            #state_values = state_values[:,0]
-
-            # State stuff
-            # state_loss = mse_loss(batch_scales, state_values) # for AC
+            if agent.actor_critic:
+                logits, state_values = logits
+                state_values = state_values[:,0]
+                state_loss = mse_loss(batch_scales, state_values)
             
             # Compute logits
             move_log_probs = tf.nn.log_softmax(logits)
             masked_log_probs = tf.multiply(move_log_probs,selected_move_mask)
             selected_log_probs = tf.reduce_sum(masked_log_probs, 1)
-            #obs_advantage = batch_scales -  tf.stop_gradient(state_values) # for AC
             obs_advantage = batch_scales
+            if agent.actor_critic:
+                obs_advantage = batch_scales -  tf.stop_gradient(state_values)
             expectation_loss = - tf.tensordot(obs_advantage,selected_log_probs,axes=1) / len(selected_log_probs)
             
 
@@ -270,26 +269,30 @@ def main(symmetry,game_type,actor_critic):
 
             # Sum the loss contributions
             loss = expectation_loss + entropy_loss
-            # loss += state_loss    # for AC
-        
-        #writer.add_scalar("state-loss", state_loss.numpy(), frame_idx) # for AC
-        writer.add_scalar("expectation-loss", expectation_loss.numpy(), frame_idx)
-        writer.add_scalar("entropy-loss", entropy_loss.numpy(), frame_idx)
-        writer.add_scalar("loss", loss.numpy(), frame_idx)
+            if agent.actor_critic:
+                loss += state_loss
+                writer.add_scalar("state-loss", state_loss.numpy(), step)
 
-        #grads = tape.gradient(loss,agent.model.trainable_variables)
-        #optimizer.apply_gradients(zip(grads, agent.model.trainable_variables))
-        grads = tape.gradient(loss,tape.watched_variables())
-        optimizer.apply_gradients(zip(grads, tape.watched_variables()))
+        writer.add_scalar("expectation-loss", expectation_loss.numpy(), step)
+        writer.add_scalar("entropy-loss", entropy_loss.numpy(), step)
+        writer.add_scalar("loss", loss.numpy(), step)
+
+        grads = tape.gradient(loss,agent.model.trainable_variables)
+        optimizer.apply_gradients(zip(grads, agent.model.trainable_variables))
+        #grads = tape.gradient(loss,tape.watched_variables())
+        #optimizer.apply_gradients(zip(grads, tape.watched_variables()))
         
         # calc KL-div
-        # new_logits_v, _ = agent.model(x_train)  # for AC
         new_logits_v = agent.model(x_train)
+        if agent.actor_critic:
+            new_logits_v, _ = new_logits_v
         new_prob_v = tf.nn.softmax(new_logits_v)
         kl_div_v = -np.sum((np.log((new_prob_v / move_probs)) * move_probs), axis=1).mean()
-        writer.add_scalar("kl", kl_div_v.item(), frame_idx)
+        writer.add_scalar("kl", kl_div_v.item(), step)
 
         # Track gradient variance
+        weights_and_biases_flat = np.concatenate([v.numpy().flatten() for v in agent.model.variables])
+        writer.add_histogram("weights and biases",weights_and_biases_flat,step)
         grads_flat = np.concatenate([v.numpy().flatten() for v in grads])
         writer.add_histogram("gradients",grads_flat,step)
         grad_rmse = np.sqrt( np.mean( grads_flat ** 2 ) )
