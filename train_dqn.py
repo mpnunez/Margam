@@ -222,6 +222,10 @@ def main(symmetry,game_type,double_dqn,deuling_dqn):
         agent.random_weight = max(EPSILON_FINAL, EPSILON_START - step / EPSILON_DECAY_LAST_FRAME)
 
         # Compute average reward
+        # This double-counts end states if N_TD>1
+        # We have a bunch of transitions that look final,
+        # but originally were not. Need to figure out
+        # how to differentiate final vs. unrolled final-looking states
         if transition.next_state is None:
             reward_buffer.append(transition.reward)
             reward_buffer_vs[opponent.name].append(transition.reward)

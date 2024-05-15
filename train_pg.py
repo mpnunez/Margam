@@ -51,6 +51,7 @@ if GAME_TYPE == "Connect4":
     # Policy gradient
     BATCH_N_EPISODES = 4
     ENTROPY_BETA = 0.1
+    STATE_VALUE_BETA = 1
 
 elif GAME_TYPE == "TicTacToe":
     NROWS = 3
@@ -117,7 +118,9 @@ def generate_transitions(agent, opponents):
         for move_record in agent_records:
             yield move_record, opponent
 
-
+# Merge this together with the n-step TD learning sampling function
+# That you used in DQN. Essentially you're unrolling the TD
+# and assigning a later final state and reward
 def generate_transitions_pg(agent, opponents):
     """
     Sample a full episode, then assign q values
