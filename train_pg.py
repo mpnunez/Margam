@@ -287,7 +287,10 @@ def main(symmetry,game_type,actor_critic):
         if agent.actor_critic:
             new_logits_v, _ = new_logits_v
         new_prob_v = tf.nn.softmax(new_logits_v)
-        kl_div_v = -np.sum((np.log((new_prob_v / move_probs)) * move_probs), axis=1).mean()
+        KL_EPSILON = 1e-7
+        new_prob_v_kl = new_prob_v + KL_EPSILON
+        move_probs_kl = move_probs + KL_EPSILON
+        kl_div_v = -np.sum(np.log(new_prob_v_kl / move_probs_kl) * move_probs_kl, axis=1).mean()
         writer.add_scalar("kl", kl_div_v.item(), step)
 
         # Track gradient variance
