@@ -82,11 +82,10 @@ class PolicyPlayer(Player):
     def __init__(self,*args,**kwargs):
         super().__init__(*args,**kwargs)
         self.model = None
-        self.actor_critic = False
     
     def get_move(self,board: np.array, game) -> int:
-        logits = self.model(board[np.newaxis,:])
-        if self.actor_critic:
+        logits = self.model.predict_on_batch(board[np.newaxis,:])
+        if len(self.model.outputs) == 2:        # for actor-critic
             logits, _ = logits
         move_probabilities = softmax(logits[0])
         selected_move = random.choices(game.options, weights=move_probabilities, k=1)[0]
@@ -171,7 +170,6 @@ def main(symmetry,game_type,actor_critic):
     
     # Intialize players
     agent = PolicyPlayer(name="VanillaPG")
-    agent.actor_critic = actor_critic
     input_shape = (NROWS,NCOLS,NPLAYERS)
     nn_input = keras.Input(shape=input_shape)
     
@@ -182,7 +180,7 @@ def main(symmetry,game_type,actor_critic):
     logits_output = layers.Dense(NOUTPUTS, activation="linear")(x)
     nn_outputs = logits_output
 
-    if agent.actor_critic:
+    if actor_critic:
         x = layers.Dense(64, activation="relu")(model_trunk_f)
         state_value_output = layers.Dense(1, activation="linear")(x)
         nn_outputs = [logits_output,state_value_output]
@@ -247,8 +245,8 @@ def main(symmetry,game_type,actor_critic):
 
         with tf.GradientTape() as tape:
 
-            logits = agent.model(x_train)
-            if agent.actor_critic:
+            logits = agent.model.predict_on_batch(x_train)
+            if actor_critic:
                 logits, state_values = logits
                 state_values = state_values[:,0]
                 state_loss = mse_loss(batch_scales, state_values)
@@ -258,7 +256,7 @@ def main(symmetry,game_type,actor_critic):
             masked_log_probs = tf.multiply(move_log_probs,selected_move_mask)
             selected_log_probs = tf.reduce_sum(masked_log_probs, 1)
             obs_advantage = batch_scales
-            if agent.actor_critic:
+            if actor_critic:
                 obs_advantage = batch_scales -  tf.stop_gradient(state_values)
             expectation_loss = - tf.tensordot(obs_advantage,selected_log_probs,axes=1) / len(selected_log_probs)
             
@@ -272,7 +270,7 @@ def main(symmetry,game_type,actor_critic):
 
             # Sum the loss contributions
             loss = expectation_loss + entropy_loss
-            if agent.actor_critic:
+            if actor_critic:
                 loss += state_loss
                 writer.add_scalar("state-loss", state_loss.numpy(), step)
 
@@ -286,8 +284,8 @@ def main(symmetry,game_type,actor_critic):
         #optimizer.apply_gradients(zip(grads, tape.watched_variables()))
         
         # calc KL-div
-        new_logits_v = agent.model(x_train)
-        if agent.actor_critic:
+        new_logits_v = agent.model.predict_on_batch(x_train)
+        if actor_critic:
             new_logits_v, _ = new_logits_v
         new_prob_v = tf.nn.softmax(new_logits_v)
         KL_EPSILON = 1e-7

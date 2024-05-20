@@ -12,15 +12,10 @@ from tensorflow.keras.optimizers import Adam
 from tensorboardX import SummaryWriter
 from keras.models import load_model
 
-from connect4lib.game import Connect4, TicTacToe
-from connect4lib.agents import MiniMax
-
-
-from connect4lib.agents.player import Player
+from player import Player, MiniMax
 import numpy as np
 import random
 
-from connect4lib.transition import Transition
 
 from tensorflow import keras
 from tensorflow.keras import layers
@@ -197,6 +192,8 @@ def main(symmetry,game_type,double_dqn,deuling_dqn):
         outputs=q_values,
         name="DQN-model")
     agent.model.summary()
+    print(len(agent.model.outputs))
+    return
     target_network = keras.models.clone_model(agent.model)
     target_network.set_weights(agent.model.get_weights())
 
@@ -293,7 +290,7 @@ def main(symmetry,game_type,double_dqn,deuling_dqn):
         
         # Compute MSE loss based on chosen move values only
         with tf.GradientTape() as tape:
-            predicted_q_values = agent.model(x_train)
+            predicted_q_values = agent.model.predict_on_batch(x_train)
             predicted_q_values = tf.multiply(predicted_q_values,selected_move_mask)
             predicted_q_values = tf.reduce_sum(predicted_q_values, 1)
             q_prediction_errors = predicted_q_values - q_to_train_single_values

@@ -1,4 +1,7 @@
 ---
+connect_four
+tic_tac_toe
+
 CommonParams: &common
   #Learning:
   DISCOUNT_RATE: 0.90
