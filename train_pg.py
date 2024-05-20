@@ -1,30 +1,21 @@
-from tqdm import tqdm
-import numpy as np
-from enum import Enum
 import itertools
-from collections import deque
-
-import tensorflow as tf
-from tensorflow import one_hot
-from tensorflow.keras.losses import MeanSquaredError
-from tensorflow.keras.optimizers import Adam
-from tensorboardX import SummaryWriter
-from keras.models import load_model
-from tensorflow import keras
-from tensorflow.keras import layers
-from tensorflow.nn import softmax
-
-from connect4lib.game import TicTacToe
-from connect4lib.agents import RandomPlayer, ColumnSpammer
-from connect4lib.agents import MiniMax
-
-from connect4lib.agents.player import Player
-import numpy as np
 import random
-
-
+from collections import deque
+from enum import Enum
 
 import click
+import numpy as np
+import tensorflow as tf
+from keras.models import load_model
+from tensorboardX import SummaryWriter
+from tensorflow import keras, one_hot
+from tensorflow.keras import layers
+from tensorflow.keras.losses import MeanSquaredError
+from tensorflow.keras.optimizers import Adam
+from tensorflow.nn import softmax
+from tqdm import tqdm
+
+from player import ColumnSpammer, MiniMax, Player, RandomPlayer
 
 # Game hyperparameters
 

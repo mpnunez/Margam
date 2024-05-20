@@ -1,16 +1,13 @@
+import copy
+import random
 from abc import ABC, abstractmethod
-import numpy as np
-import random
-from typing import List
-
 from collections import defaultdict
+from typing import List, Optional, Tuple
+
 import numpy as np
-import random
-
-from typing import Tuple, Optional
-
 
 from utils import get_training_and_viewing_state
+
 
 class Player(ABC):
     requires_user_input = False
@@ -29,8 +26,9 @@ class HumanPlayer(Player):
         
         valid_input = False
         while not valid_input:
-            print("\nBoard state")
+            print("\nState")
             state_np_for_cov, human_view_state = get_training_and_viewing_state(game,state)
+            print(human_view_state)
             print("Available moves:")
             print(state.legal_actions())
             new_input = input(f"Select a move:")
@@ -77,41 +75,42 @@ class MiniMax(Player):
 
     def eval_state(
         self,
-        board: np.array,
+        state,
         game,
-        depth=1,
-        current_player=0) -> Tuple[float, Optional[int]]:
+        depth,
+        orig_player) -> Tuple[float, Optional[int]]:
         """
         Returns a tuple with
-        - The value of the current board for player 0
+        - The value of the current state for player 0
         - The best move to be taken for current agent
         """
 
-        if game.check_win(board,0):
-            return (game.WIN_REWARD, None)
-        if game.check_win(board,1):
-            return (game.LOSS_REWARD, None)
-        if depth <= 0:
-            return (game.TIE_REWARD, random.choice(game.options))      # Neither player can force a win
+        if state.is_terminal():
+            return ( state.returns()[orig_player] , None)
+        if depth <= 0 or len(state.legal_actions()) == 0:
+            tie_reward = (game.max_utility()+game.min_utility())/2
+            return tie_reward, random.choice(state.legal_actions())
 
-        move_values = defaultdict(list)
-        for move in game.options:
-            board_result = game.drop_in_slot(board,current_player,move)
-            if board_result is None:
-                continue
-            
-            value, _ = self.eval_state(board_result, game, depth-1, 1 - current_player)
-            move_values[value].append(move)
+        actions_with_value = defaultdict(list)
+        for move in state.legal_actions():
+            state_result = copy.copy(state)
+            state_result.apply_action(move)
+            value, _ = self.eval_state(state_result, game, depth-1,orig_player)
+            actions_with_value[value].append(move)
 
-        if len(move_values) == 0:
-            return (game.TIE_REWARD,None)
-
-        if current_player == 0:
-            move_value = max(move_values.keys())
+        if state.current_player() == orig_player:
+            move_value = max(actions_with_value.keys())
         else:
-            move_value = min(move_values.keys())
-        return move_value, random.choice(move_values[move_value])
+            move_value = min(actions_with_value.keys())
+        action = random.choice(actions_with_value[move_value])
+  
+        return move_value, action
 
-    def get_move(self, board: np.array, game) -> int:
-        value, move = self.eval_state(board,game,depth=self.max_depth)
+    def get_move(self, game, state) -> int:
+        value, move = self.eval_state(
+            state,
+            game,
+            self.max_depth,
+            orig_player=state.current_player(),
+            )
         return move

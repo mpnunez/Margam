@@ -1,5 +1,6 @@
 import numpy as np
 
+
 class Connect4Exception(Exception):
     pass
 

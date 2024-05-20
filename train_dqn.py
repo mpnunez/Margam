@@ -1,26 +1,21 @@
-from tqdm import tqdm
-import numpy as np
-from enum import Enum
 import itertools
+import random
 from collections import deque
+from enum import Enum
 from functools import partial
 
+import click
+import numpy as np
 import tensorflow as tf
-from tensorflow import one_hot
+from keras.models import load_model
+from tensorboardX import SummaryWriter
+from tensorflow import keras, one_hot
+from tensorflow.keras import layers
 from tensorflow.keras.losses import MeanSquaredError
 from tensorflow.keras.optimizers import Adam
-from tensorboardX import SummaryWriter
-from keras.models import load_model
+from tqdm import tqdm
 
-from player import Player, MiniMax
-import numpy as np
-import random
-
-
-from tensorflow import keras
-from tensorflow.keras import layers
-
-import click
+from player import MiniMax, Player
 
 GAME_TYPE = "TicTacToe"
 #GAME_TYPE = "Connect4"

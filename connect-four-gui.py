@@ -1,23 +1,16 @@
+import functools
 import sys
 import time
 
-from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QGridLayout, QPushButton, QComboBox
-from PyQt5.QtGui import QIcon
-from PyQt5.QtCore import pyqtSlot, QThread, QObject, pyqtSignal
-from PyQt5.QtGui import QPixmap
-from PyQt5.QtWidgets import QMessageBox
-
-from connect4lib.player import RandomPlayer, HumanPlayer
-from connect4lib.game import Game, GameStatus
-from connect4lib.player import Player, ColumnSpammer, RandomPlayer
-from connect4lib.dqn_player import DQNPlayer
 import numpy as np
+from connect4lib.dqn_player import DQNPlayer
+from connect4lib.game import Game, GameStatus
+from connect4lib.player import ColumnSpammer, HumanPlayer, Player, RandomPlayer
 from keras.models import load_model
-
-
-import time
-
-import functools
+from PyQt5.QtCore import QObject, QThread, pyqtSignal, pyqtSlot
+from PyQt5.QtGui import QIcon, QPixmap
+from PyQt5.QtWidgets import (QApplication, QComboBox, QGridLayout, QLabel,
+                             QMessageBox, QPushButton, QWidget)
 
 """
 
