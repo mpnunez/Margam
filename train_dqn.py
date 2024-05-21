@@ -3,6 +3,7 @@ import random
 from collections import deque
 from enum import Enum
 from functools import partial
+import yaml
 
 import click
 import numpy as np
@@ -16,63 +17,9 @@ from tensorflow.keras.optimizers import Adam
 from tqdm import tqdm
 
 from player import MiniMax, Player
-
-GAME_TYPE = "TicTacToe"
-#GAME_TYPE = "Connect4"
-
-if GAME_TYPE == "Connect4":
-    NROWS = 6
-    NCOLS = 7
-    NPLAYERS = 2
-    NCONNECT = 4
-    NOUTPUTS = NCOLS
-
-    # Learning
-    DISCOUNT_RATE = 0.97
-    LEARNING_RATE = 1e-3
-
-    # Recording progress
-    REWARD_BUFFER_SIZE = 1_000
-    RECORD_HISTOGRAMS = 1_000
-    SAVE_MODEL_ABS_THRESHOLD = 0.20
-    SAVE_MODEL_REL_THRESHOLD = 0.01
-
-    # DQN
-    BATCH_SIZE = 32             
-    REPLAY_SIZE = 10_000
-    SYNC_TARGET_NETWORK = 1_000
-    REPLAY_START_SIZE = 10_000
-    EPSILON_DECAY_LAST_FRAME = 5e4
-    EPSILON_START = 1.0
-    EPSILON_FINAL = 0.02
-
-elif GAME_TYPE == "TicTacToe":
-    NROWS = 3
-    NCOLS = 3
-    NPLAYERS = 2
-    NCONNECT = 3
-    NOUTPUTS = NROWS*NCOLS
-
-    # Learning
-    DISCOUNT_RATE = 0.90
-    LEARNING_RATE = 1e-4
-
-    # Recording progress
-    REWARD_BUFFER_SIZE = 1_000
-    RECORD_HISTOGRAMS = 1_000
-    SAVE_MODEL_ABS_THRESHOLD = 0
-    SAVE_MODEL_REL_THRESHOLD = 0.01
-
-    # DQN
-    BATCH_SIZE = 32             
-    REPLAY_SIZE = 10_000
-    SYNC_TARGET_NETWORK = 1_000
-    REPLAY_START_SIZE = 10_000
-    EPSILON_DECAY_LAST_FRAME = 1e5
-    EPSILON_START = 1.0
-    EPSILON_FINAL = 0.02
-
-N_TD = 2        # temporal difference learning look-ahead
+from utils import Connect4Exception
+import pyspiel
+from utils import get_training_and_viewing_state
 
 class DQNPlayer(Player):
     
@@ -81,59 +28,15 @@ class DQNPlayer(Player):
         self.model = None
         self.random_weight = random_weight
     
-    def get_move(self,board: np.array, game) -> int:
+    def get_move(self,game, state) -> int:
         if np.random.random() < self.random_weight:
-            return random.choice(game.options)
-            
-        q_values = self.model.predict_on_batch(board[np.newaxis,:])[0]
+            return random.choice(state.legal_actions())
+        
+        state_for_cov, human_view_state = get_training_and_viewing_state(game,state)
+        q_values = self.model.predict_on_batch(state_for_cov[np.newaxis,:])[0]
         max_q_ind = np.argmax(q_values)
         
         return game.options[max_q_ind]
-
-
-def generate_transitions(agent, opponents):
-    """
-    Infinitely yield transitions by playing
-    game episodes
-    """
-
-    for i, _ in enumerate(iter(bool, True)):
-
-        opponent_ind = (i//2)%len(opponents)    # Play each opponent twice in a row
-        opponent = opponents[opponent_ind]
-        agent_position = i%2
-        opponent_position = (agent_position+1)%2
-        
-        g = TicTacToe(nrows=NROWS,ncols=NCOLS,nconnectwins=NCONNECT)
-        g.players = [None,None]
-        g.players[agent_position] = agent        # Alternate being player 1/2
-        g.players[opponent_position] = opponent   
-        
-        
-        winner, records = g.play_game()
-        agent_records = records[agent_position::len(g.players)]
-
-        agent_records_td = []
-        for i, tr in enumerate(agent_records):
-            td_tsn = Transition(
-                state = tr.state,
-                selected_move = tr.selected_move,
-                reward = tr.reward,
-            )
-            
-            for j in range(i+1, min( len(agent_records), i+N_TD) ):
-                td_tsn.reward += agent_records[j].reward * DISCOUNT_RATE ** (j-i)
-
-            if i + N_TD < len(agent_records):
-                td_tsn.next_state = agent_records[i+N_TD].state
-
-            agent_records_td.append(td_tsn)
-
-        for move_record in agent_records_td:
-            yield move_record, opponent
-
-
-
 
 
 def sample_experience_buffer(buffer,batch_size):
@@ -141,56 +44,47 @@ def sample_experience_buffer(buffer,batch_size):
     return [buffer[idx] for idx in indices]
         
 
-
-@click.command()
-@click.option("--symmetry","-s",
-    is_flag=True,
-    default=False,
-    help="Include symmetries in training")
-@click.option('-g', '--game-type',
-    type=click.Choice(['tictactoe', 'connect4'],
-    case_sensitive=False),
-    default="tictactoe",
-    show_default=True,
-    help="game type")
-@click.option("--double-dqn","-d",
-    is_flag=True,
-    default=True,
-    help="Use double DQN")
-@click.option("--deuling-dqn","-u",
-    is_flag=True,
-    default=True,
-    help="Use deuling DQN")
-def main(symmetry,game_type,double_dqn,deuling_dqn):
+def initialize_model(game_type,hp):
+    game = pyspiel.load_game(game_type)
+    state = game.new_initial_state() 
+    state_np_for_cov, human_view_state = get_training_and_viewing_state(game,state)
+    nn_input = keras.Input(shape=state_np_for_cov.shape)
     
-    # Intialize model
-    agent = DQNPlayer(name="Magnus")
-    input_shape = (NROWS,NCOLS,NPLAYERS)
-    nn_input = keras.Input(shape=input_shape)
-    input_flat = layers.Flatten()(nn_input)
-    x = layers.Dense(32, activation="relu")(input_flat)
-    #x = layers.Dense(16, activation="relu")(x)
-    q_values = layers.Dense(NOUTPUTS, activation="linear")(x)
+    if game_type == "tic_tac_toe":
+        input_flat = layers.Flatten()(nn_input)
+        x = layers.Dense(32, activation="relu")(input_flat)
+        q_values = layers.Dense(game.num_distinct_actions(), activation="linear")(x)
 
-    # Deuling DQN adds a second column to the neural net that
-    # computes state value V(s) and interprets the Q
-    # values as advantage of that action in that state
-    # Q(s,a) = A(s,a) + V(s)
-    # Final output is the same so it is interoperable with vanilla DQN
-    if deuling_dqn:
-        x_sv = layers.Dense(32, activation="relu")(input_flat)
-        sv = layers.Dense(1, activation="linear")(x_sv)
-        q_values = q_values - tf.math.reduce_mean(q_values,axis=1,keepdims=True) + sv
+        # Deuling DQN adds a second column to the neural net that
+        # computes state value V(s) and interprets the Q
+        # values as advantage of that action in that state
+        # Q(s,a) = A(s,a) + V(s)
+        # Final output is the same so it is interoperable with vanilla DQN
+        if hp["DEULING_DQN"]:
+            x_sv = layers.Dense(32, activation="relu")(input_flat)
+            sv = layers.Dense(1, activation="linear")(x_sv)
+            q_values = q_values - tf.math.reduce_mean(q_values,axis=1,keepdims=True) + sv
+    elif game_type == "connect_four":
+        # build some conv net
+        pass
+    else:
+        raise Connect4Exception(f"Unrecognized game type: {game_type}")
 
-    agent.model = keras.Model(
+    model = keras.Model(
         inputs=nn_input,
         outputs=q_values,
         name="DQN-model")
-    agent.model.summary()
-    print(len(agent.model.outputs))
-    return
+    model.summary()
+    return model
+
+def train_dqn(game_type,hp):
+    
+    # Intialize agent and model
+    agent = DQNPlayer(name="Magnus")
+    agent.model = initialize_model(game_type,hp)
     target_network = keras.models.clone_model(agent.model)
     target_network.set_weights(agent.model.get_weights())
+    return
 
     g = TicTacToe(nrows=NROWS,ncols=NCOLS,nconnectwins=NCONNECT)
     opponents = [MiniMax(name="Minnie",max_depth=1)]

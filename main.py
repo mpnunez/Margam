@@ -3,8 +3,16 @@ import pyspiel
 from player import HumanPlayer, MiniMax
 import numpy as np
 import random
+import yaml
 
-@click.command()
+
+#from train_pg import train_pg
+
+@click.group()
+def main():
+    pass
+
+@main.command()
 @click.option('-g', '--game-type',
     type=click.Choice(list(pyspiel.registered_names()),
     case_sensitive=False),
@@ -31,7 +39,11 @@ import random
     is_flag=True,
     default=False,
     help="Play as second player")
-def main(game_type,opponent,depth,model,second):
+@click.option("-u","--gui",
+    is_flag=True,
+    default=False,
+    help="Use GUI instead of command line")
+def play(game_type,opponent,depth,model,second,gui):
     # Enable choosing opponent with CLI
     
     # Intialize players
@@ -75,6 +87,40 @@ def main(game_type,opponent,depth,model,second):
 
     winner = np.argmax(state.returns())
     print(f"{players[winner].name} won!")
+
+    # For GUI
+    # from connect-four-gui import run_gui
+    #run_gui(...)
+
+@main.command()
+@click.option('-g', '--game-type',
+    type=click.Choice(list(pyspiel.registered_names()),
+    case_sensitive=False),
+    default="connect_four",
+    show_default=True,
+    help="game type")
+@click.option('-a', '--algorithm',
+    type=click.Choice(['dqn', 'pg'],
+    case_sensitive=False),
+    default="dqn",
+    show_default=True,
+    help="Reinforcement learning algorithm")
+@click.option('-h', '--hyperparameter-file',
+    type=str,
+    default="hyperparams.yaml",
+    show_default=True,
+    help="YAML file with hyperparameter values")
+def train(game_type,algorithm,hyperparameter_file):
+
+    with open(hyperparameter_file,"r") as f:
+        hp = yaml.safe_load(f)
+
+    if algorithm == "dqn":
+        from train_dqn import train_dqn
+        train_dqn(game_type,hp[game_type])
+    elif algorithm == "pg":
+        train_pg(game_type,hp[game_type])
+    
 
 if __name__ == "__main__":
     main()

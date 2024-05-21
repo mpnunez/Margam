@@ -209,7 +209,7 @@ class Worker(QObject):
 
         self.finished.emit()
    
-if __name__ == "__main__":
+def run_gui():
     app = QApplication(sys.argv)
     window = Connect4GUI()
     window.show()
