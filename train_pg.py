@@ -16,7 +16,7 @@ from tensorflow.nn import softmax
 from tqdm import tqdm
 
 from player import ColumnSpammer, MiniMax, Player, RandomPlayer
-
+from utils import Connect4Error
 
 
 class PolicyPlayer(Player):
@@ -33,89 +33,41 @@ class PolicyPlayer(Player):
         selected_move = random.choices(game.options, weights=move_probabilities, k=1)[0]
         return selected_move
 
+def initialize_model(game_type,hp,show_model=True):
+    game = pyspiel.load_game(game_type)
+    state = game.new_initial_state() 
+    state_np_for_cov, human_view_state = get_training_and_viewing_state(game,state)
+    nn_input = keras.Input(shape=state_np_for_cov.shape)
+    
+    if game_type == "tic_tac_toe":
+        input_flat = layers.Flatten()(nn_input)
+        model_trunk_f  = input_flat
 
-def generate_transitions(agent, opponents):
-    """
-    Infinitely yield transitions by playing
-    game episodes
-    """
+        x = layers.Dense(32, activation="relu")(model_trunk_f)
+        logits_output = layers.Dense(game.num_distinct_actions(), activation="linear")(x)
+        nn_outputs = logits_output
 
-    for i, _ in enumerate(iter(bool, True)):
+        if hp["ACTOR_CRITIC"]:
+            x = layers.Dense(64, activation="relu")(model_trunk_f)
+            state_value_output = layers.Dense(1, activation="linear")(x)
+            nn_outputs = [logits_output,state_value_output]
 
-        opponent_ind = (i//2)%len(opponents)    # Play each opponent twice in a row
-        opponent = opponents[opponent_ind]
-        agent_position = i%2
-        opponent_position = (agent_position+1)%2
-        
-        g = TicTacToe(nrows=NROWS,ncols=NCOLS,nconnectwins=NCONNECT)
-        g.players = [None,None]
-        g.players[agent_position] = agent        # Alternate being player 1/2
-        g.players[opponent_position] = opponent   
-        
-        
-        winner, records = g.play_game()
-        agent_records = records[agent_position::len(g.players)]
+    else:
+        raise Connect4Error(f"{game_type} not implemented")
 
-        for move_record in agent_records:
-            yield move_record, opponent
+    agent.model = keras.Model(inputs=nn_input, outputs=nn_outputs, name="policy-model")
 
-# Merge this together with the n-step TD learning sampling function
-# That you used in DQN. Essentially you're unrolling the TD
-# and assigning a later final state and reward
-def generate_transitions_pg(agent, opponents):
-    """
-    Sample a full episode, then assign q values
-    based on final reward
-    """
-
-    episode_transitions = []
-    q_values = []
-    for transition, opponent in generate_transitions(agent,opponents):
-
-        episode_transitions.append(transition)
-
-        if transition.next_state is not None:
-            continue
-
-        # Assign q-values based on unrolling to final state
-        prev_q = 0
-        for tsn in reversed(episode_transitions):
-            q = tsn.reward + DISCOUNT_RATE * prev_q
-            prev_q = q
-            q_values.append(q)
-        q_values = list(reversed(q_values))
-            
-        # Yield scored transitions to caller
-        for tsn, q_value in zip(episode_transitions,q_values):
-            yield tsn, q_value, opponent
-
-        # Reset for next episode
-        episode_transitions = []
-        q_values = []
-
+    if show_model:
+        agent.model.summary()
+    
 
 def train_pg(game_type,hp):
     
     # Intialize players
     agent = PolicyPlayer(name="VanillaPG")
-    input_shape = (NROWS,NCOLS,NPLAYERS)
-    nn_input = keras.Input(shape=input_shape)
+    agent.model = initialize_model(game_type,hp)
+
     
-    input_flat = layers.Flatten()(nn_input)
-    model_trunk_f  = input_flat
-
-    x = layers.Dense(32, activation="relu")(model_trunk_f)
-    logits_output = layers.Dense(NOUTPUTS, activation="linear")(x)
-    nn_outputs = logits_output
-
-    if actor_critic:
-        x = layers.Dense(64, activation="relu")(model_trunk_f)
-        state_value_output = layers.Dense(1, activation="linear")(x)
-        nn_outputs = [logits_output,state_value_output]
-
-    agent.model = keras.Model(inputs=nn_input, outputs=nn_outputs, name="policy-model")
-
-    agent.model.summary()
 
     opponents = [MiniMax(name="Minnie",max_depth=1)]
     reward_buffer = deque(maxlen=REWARD_BUFFER_SIZE)

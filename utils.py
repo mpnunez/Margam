@@ -1,7 +1,9 @@
 import numpy as np
 
+from typing import List
+from dataclasses import dataclass
 
-class Connect4Exception(Exception):
+class Connect4Error(Exception):
     pass
 
 def get_training_and_viewing_state(game,state):
@@ -33,43 +35,68 @@ def get_training_and_viewing_state(game,state):
 
     return state_np_for_cov, human_view_state
 
-def generate_transitions(agent, opponents):
+
+
+
+@dataclass
+class Transition:
     """
-    Infinitely yield transitions by playing
-    game episodes
+    Data from the game used to train the agent
     """
+    state: = None
+    selected_move: int = 0
+    reward: float = 0
+    next_state = None
 
-    for i, _ in enumerate(iter(bool, True)):
-
-        opponent_ind = (i//2)%len(opponents)    # Play each opponent twice in a row
-        opponent = opponents[opponent_ind]
-        agent_position = i%2
-        opponent_position = (agent_position+1)%2
+def apply_temporal_difference(transitions,reward_discount,n_td=1):
+    """
+    Use n_td=-1 to discount to the end of the episode
+    """
+    if n_td == -1:
+        n_td = len(transitions)
+    if nt_td < 1:
+        raise Connect4Error(f"n_td must be >=1. Got {n_td}")
+    transitions_td = []
+    for i, tr in enumerate(transitions):
+        td_tsn = Transition(
+            state = tr.state,
+            selected_move = tr.selected_move,
+            reward = tr.reward,
+        )
         
-        g = TicTacToe(nrows=NROWS,ncols=NCOLS,nconnectwins=NCONNECT)
-        g.players = [None,None]
-        g.players[agent_position] = agent        # Alternate being player 1/2
-        g.players[opponent_position] = opponent   
-        
-        
-        winner, records = g.play_game()
-        agent_records = records[agent_position::len(g.players)]
+        for j in range(i+1, min( len(transitions), i+n_td) ):
+            td_tsn.reward += transitions[j].reward * reward_discount ** (j-i)
 
-        agent_records_td = []
-        for i, tr in enumerate(agent_records):
-            td_tsn = Transition(
-                state = tr.state,
-                selected_move = tr.selected_move,
-                reward = tr.reward,
-            )
-            
-            for j in range(i+1, min( len(agent_records), i+N_TD) ):
-                td_tsn.reward += agent_records[j].reward * DISCOUNT_RATE ** (j-i)
+        if i + n_td < len(transitions):
+            td_tsn.next_state = transitions[i+n_td].state
 
-            if i + N_TD < len(agent_records):
-                td_tsn.next_state = agent_records[i+N_TD].state
+        transitions_td.append(td_tsn)
+    return transitions_td
 
-            agent_records_td.append(td_tsn)
+def generate_episode_transitions(game_type,hp,agent,opponent,player_pos) -> List:
+    game = pyspiel.load_game(game_type)
+    state = game.new_initial_state()
 
-        for move_record in agent_records_td:
-            yield move_record, opponent
+    agent_transitions = []
+    while not state.is_terminal():
+        if state.is_chance_node():
+            # Sample a chance event outcome.
+            outcomes_with_probs = state.chance_outcomes()
+            action_list, prob_list = zip(*outcomes_with_probs)
+            action = np.random.choice(action_list, p=prob_list)
+            state.apply_action(action)
+        else:
+
+            current_player = agent if state.current_player() % 2 == player_pos else opponent
+            # If the player action is legal, do it. Otherwise, do random
+            action = current_player.get_move(game,state)
+            if action not in state.legal_actions():
+                action = random.choice(state.legal_actions())
+            state.apply_action(action)
+
+    agent_transitions = apply_temporal_difference(
+        agent_transitions,
+        hp["REWARD_DISCOUNT"],
+        n_td=hp["N_TD"],
+        ):
+    return agent_transitions

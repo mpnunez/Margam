@@ -44,7 +44,7 @@ def sample_experience_buffer(buffer,batch_size):
     return [buffer[idx] for idx in indices]
         
 
-def initialize_model(game_type,hp):
+def initialize_model(game_type,hp,show_model=True):
     game = pyspiel.load_game(game_type)
     state = game.new_initial_state() 
     state_np_for_cov, human_view_state = get_training_and_viewing_state(game,state)
@@ -66,16 +66,19 @@ def initialize_model(game_type,hp):
             q_values = q_values - tf.math.reduce_mean(q_values,axis=1,keepdims=True) + sv
     elif game_type == "connect_four":
         # build some conv net
-        pass
+        raise Connect4Error(f"Need to implement {game_type}")
     else:
-        raise Connect4Exception(f"Unrecognized game type: {game_type}")
+        raise Connect4Error(f"Unrecognized game type: {game_type}")
 
     model = keras.Model(
         inputs=nn_input,
         outputs=q_values,
         name="DQN-model")
-    model.summary()
+    if show_model:
+        agent.model.summary()
     return model
+
+
 
 def train_dqn(game_type,hp):
     
@@ -86,7 +89,7 @@ def train_dqn(game_type,hp):
     target_network.set_weights(agent.model.get_weights())
     return
 
-    g = TicTacToe(nrows=NROWS,ncols=NCOLS,nconnectwins=NCONNECT)
+    game = pyspiel.load_game(game_type)
     opponents = [MiniMax(name="Minnie",max_depth=1)]
 
     experience_buffer = deque(maxlen=REPLAY_SIZE)
@@ -107,6 +110,10 @@ def train_dqn(game_type,hp):
 
         agent.random_weight = max(EPSILON_FINAL, EPSILON_START - step / EPSILON_DECAY_LAST_FRAME)
 
+        opponent = ??
+        player_pos = ??
+        agent_transitions = generate_episode_transitions(game_type,hp,agent,opponent,player_pos)
+
         # Compute average reward
         # This double-counts end states if N_TD>1
         # We have a bunch of transitions that look final,
@@ -116,20 +123,21 @@ def train_dqn(game_type,hp):
             reward_buffer.append(transition.reward)
             reward_buffer_vs[opponent.name].append(transition.reward)
             smoothed_reward = sum(reward_buffer) / len(reward_buffer)
-            win_rate = sum(r == g.WIN_REWARD for r in reward_buffer) / len(reward_buffer)
-            tie_rate = sum(r == g.TIE_REWARD for r in reward_buffer) / len(reward_buffer)
-            loss_rate = sum(r == g.LOSS_REWARD for r in reward_buffer) / len(reward_buffer)
+            wins = sum(r == game.max_utility() + for r in reward_buffer) 
+            ties = sum(r == 0 for r in reward_buffer)
+            losses = sum(r == game.min_utility() for r in reward_buffer)
+            assert wins + ties + losses == len(reward_buffer)
             move_distribution = [mr.selected_move for mr in experience_buffer]
             move_distribution = np.array([move_distribution.count(i) for i in range(NOUTPUTS)])
-            for i in range(NOUTPUTS):
+            for i in range(game.num_distinct_actions()):
                 f = move_distribution[i] / sum(move_distribution)
-                writer.add_scalar(f"Fraction choice {i}", f, step)
+                writer.add_scalar(f"Action frequency: {i}", f, step)
             move_distribution = move_distribution / move_distribution.sum()
             #print(f"Move distribution: {move_distribution}")
             writer.add_scalar("Average reward", smoothed_reward, step)
-            writer.add_scalar("Win rate", win_rate, step)
-            writer.add_scalar("Tie rate", tie_rate, step)
-            writer.add_scalar("Loss rate", loss_rate, step)
+            writer.add_scalar("Win rate", wins / len(reward_buffer), step)
+            writer.add_scalar("Tie rate", ties / len(reward_buffer), step)
+            writer.add_scalar("Loss rate", losses / len(reward_buffer), step)
             for opp_name, opp_buffer in reward_buffer_vs.items():
                 reward_vs = sum(opp_buffer) / len(opp_buffer) if len(opp_buffer) else 0
                 writer.add_scalar(f"reward-vs-{opp_name}", reward_vs, step)
