@@ -96,7 +96,7 @@ def play(game_type,opponent,depth,model,second,gui):
 @click.option('-g', '--game-type',
     type=click.Choice(list(pyspiel.registered_names()),
     case_sensitive=False),
-    default="connect_four",
+    default="tic_tac_toe",
     show_default=True,
     help="game type")
 @click.option('-a', '--algorithm',

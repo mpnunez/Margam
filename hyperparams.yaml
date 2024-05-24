@@ -1,16 +1,17 @@
 ---
 tic_tac_toe:
+  MAX_EPISODES: 20_000
   #Learning:
   DISCOUNT_RATE: 0.90
   LEARNING_RATE: 0.0001
   N_TD: 2               # temporal difference look-ahead
+  USE_SYMMETRY: False
   #Recording progress:
   REWARD_BUFFER_SIZE: 1_000
-  RECORD_HISTOGRAMS: 1_000
+  RECORD_HISTOGRAMS: 10_000
   SAVE_MODEL_ABS_THRESHOLD: 0
   SAVE_MODEL_REL_THRESHOLD: 0.01
   #DQN:
-  USE_SYMMETRY: False
   DOUBLE_DQN: True
   DEULING_DQN: True
   BATCH_SIZE: 32
@@ -25,17 +26,18 @@ tic_tac_toe:
   ENTROPY_BETA: 0.1
   STATE_VALUE_BETA: 1
 connect_four:
+  MAX_EPISODES: 20_000
   #Learning:
   DISCOUNT_RATE: 0.90
   LEARNING_RATE: 0.0001
   N_TD: 2               # temporal difference look-ahead for reward
+  USE_SYMMETRY: False
   #Recording progress:
   REWARD_BUFFER_SIZE: 1_000
-  RECORD_HISTOGRAMS: 1_000
+  RECORD_HISTOGRAMS: 10_000
   SAVE_MODEL_ABS_THRESHOLD: 0
   SAVE_MODEL_REL_THRESHOLD: 0.01
   #DQN:
-  USE_SYMMETRY: False
   DOUBLE_DQN: True
   DEULING_DQN: True
   BATCH_SIZE: 32

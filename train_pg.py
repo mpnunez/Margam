@@ -63,6 +63,10 @@ def initialize_model(game_type,hp,show_model=True):
 
 def train_pg(game_type,hp):
     
+    # Cannot do tempral differencing without critic
+    if not hp["ACTOR_CRITIC"]:
+        hp["N_TD"] = -1
+
     # Intialize players
     agent = PolicyPlayer(name="VanillaPG")
     agent.model = initialize_model(game_type,hp)
@@ -92,24 +96,25 @@ def train_pg(game_type,hp):
         batch_actions.append(transition.selected_move)
         batch_scales.append(q_value)
 
-        # Compute average reward
-        if transition.next_state is None:
-            n_episodes_in_batch += 1
-            reward_buffer.append(transition.reward)
-            reward_buffer_vs[opponent.name].append(transition.reward)
-            smoothed_reward = sum(reward_buffer) / len(reward_buffer)
-            move_distribution = batch_actions
-            move_distribution = np.array([move_distribution.count(i) for i in range(7)])
-            move_distribution = move_distribution / move_distribution.sum()
-            writer.add_scalar("Average reward", smoothed_reward, step)
-            writer.add_scalar("Win rate", (smoothed_reward+1)/2, step)
-            for opp_name, opp_buffer in reward_buffer_vs.items():
-                reward_vs = sum(opp_buffer) / len(opp_buffer) if len(opp_buffer) else 0
-                writer.add_scalar(f"reward-vs-{opp_name}", reward_vs, step)
+        opponent = opponents[(episode_ind//2)%len(opponents)]
+        player_pos = episode_ind%2
+        agent_transitions = generate_episode_transitions(game_type,hp,agent,opponent,player_pos)
+        episode_ind += 1
 
-            if len(reward_buffer) == REWARD_BUFFER_SIZE and smoothed_reward > max(SAVE_MODEL_ABS_THRESHOLD,best_reward+SAVE_MODEL_REL_THRESHOLD):
-                agent.model.save(f"{agent.name}.keras")
-                best_reward = smoothed_reward
+        reward_buffer.append(agent_transitions[-1].reward)
+        opp_buffer[opponent.name].append(agent_transitions[-1])
+        record_episode_statistics(
+            writer,
+            game,
+            step,
+            experience_buffer,
+            reward_buffer,
+            reward_buffer_vs
+        )
+
+        if len(reward_buffer) == REWARD_BUFFER_SIZE and smoothed_reward > max(SAVE_MODEL_ABS_THRESHOLD,best_reward+SAVE_MODEL_REL_THRESHOLD):
+            agent.model.save(f"{agent.name}.keras")
+            best_reward = smoothed_reward
 
         # Don't start training the network until we have enough data
         if n_episodes_in_batch < BATCH_N_EPISODES:
