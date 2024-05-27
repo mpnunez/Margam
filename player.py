@@ -11,51 +11,55 @@ from utils import get_training_and_viewing_state
 
 class Player(ABC):
     requires_user_input = False
-    
-    def __init__(self,name=None):
+
+    def __init__(self, name=None):
         self.name = name or "nameless"
 
     @abstractmethod
     def get_move(self, game, state) -> int:
         pass
-    
-    
+
+
 class HumanPlayer(Player):
     requires_user_input = True
-    def get_move(self,game,state) -> int:
-        
+
+    def get_move(self, game, state) -> int:
+
         valid_input = False
         while not valid_input:
             print("\nState")
-            state_np_for_cov, human_view_state = get_training_and_viewing_state(game,state)
+            state_np_for_cov, human_view_state = get_training_and_viewing_state(
+                game, state
+            )
             print(human_view_state)
             print("Available moves:")
             print(state.legal_actions())
             new_input = input(f"Select a move:")
-            
+
             try:
                 move_to_play = int(new_input)
             except ValueError:
                 continue
-            
+
             valid_input = move_to_play in state.legal_actions()
-                
+
         return move_to_play
-        
+
+
 class RandomPlayer(Player):
-    def get_move(self,game,state) -> int:
+    def get_move(self, game, state) -> int:
         return random.choice(state.legal_actions())
-        
+
+
 class ColumnSpammer(Player):
-    def __init__(self,name=None,move_preference=0):
+    def __init__(self, name=None, move_preference=0):
         super().__init__(name)
         self.favorite_move = move_preference
-        
-    def get_move(self,game,state) -> int:
+
+    def get_move(self, game, state) -> int:
         if self.favorite_move in state.legal_actions():
             return self.favorite_move
         return random.choice(state.legal_actions())
-
 
 
 class MiniMax(Player):
@@ -68,17 +72,14 @@ class MiniMax(Player):
     Depth 3: Sets up forced win on next move
     etc.
     """
-    
-    def __init__(self,*args,max_depth=3,**kwargs):
-        super().__init__(*args,**kwargs)
+
+    def __init__(self, *args, max_depth=3, **kwargs):
+        super().__init__(*args, **kwargs)
         self.max_depth = max_depth
 
     def eval_state(
-        self,
-        state,
-        game,
-        depth,
-        orig_player) -> Tuple[float, Optional[int]]:
+        self, state, game, depth, orig_player
+    ) -> Tuple[float, Optional[int]]:
         """
         Returns a tuple with
         - The value of the current state for player 0
@@ -86,16 +87,16 @@ class MiniMax(Player):
         """
 
         if state.is_terminal():
-            return ( state.returns()[orig_player] , None)
+            return (state.returns()[orig_player], None)
         if depth <= 0 or len(state.legal_actions()) == 0:
-            tie_reward = (game.max_utility()+game.min_utility())/2
+            tie_reward = (game.max_utility() + game.min_utility()) / 2
             return tie_reward, random.choice(state.legal_actions())
 
         actions_with_value = defaultdict(list)
         for move in state.legal_actions():
             state_result = copy.copy(state)
             state_result.apply_action(move)
-            value, _ = self.eval_state(state_result, game, depth-1,orig_player)
+            value, _ = self.eval_state(state_result, game, depth - 1, orig_player)
             actions_with_value[value].append(move)
 
         if state.current_player() == orig_player:
@@ -103,7 +104,7 @@ class MiniMax(Player):
         else:
             move_value = min(actions_with_value.keys())
         action = random.choice(actions_with_value[move_value])
-  
+
         return move_value, action
 
     def get_move(self, game, state) -> int:
@@ -112,5 +113,5 @@ class MiniMax(Player):
             game,
             self.max_depth,
             orig_player=state.current_player(),
-            )
+        )
         return move

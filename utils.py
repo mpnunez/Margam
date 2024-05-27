@@ -6,10 +6,12 @@ import random
 
 import pyspiel
 
+
 class Connect4Error(Exception):
     pass
 
-def get_training_and_viewing_state(game,state):
+
+def get_training_and_viewing_state(game, state):
     """
     For tic-tac-toe and Connect4, convert the
     open_spiel tensor to something trainable
@@ -26,19 +28,17 @@ def get_training_and_viewing_state(game,state):
     state_as_tensor = state.observation_tensor()
     tensor_shape = game.observation_tensor_shape()
     state_np = np.reshape(np.asarray(state_as_tensor), tensor_shape)
-    
+
     # Remove last element of 1st dimension showing empty spaces
-    state_np = state_np[1::-1,:,:]
+    state_np = state_np[1::-1, :, :]
 
     # Move players axis last to be the channels for conv net
     state_np_for_cov = np.moveaxis(state_np, 0, -1)
-    
+
     # view as 1 2D matrix with the last row being first
-    human_view_state = state_np[0,::-1,:]+2*state_np[1,::-1,:]
+    human_view_state = state_np[0, ::-1, :] + 2 * state_np[1, ::-1, :]
 
     return state_np_for_cov, human_view_state
-
-
 
 
 @dataclass
@@ -46,12 +46,14 @@ class Transition:
     """
     Data from the game used to train the agent
     """
+
     state: np.array = None
     action: int = 0
     reward: float = 0
     next_state: np.array = None
 
-def apply_temporal_difference(transitions,reward_discount,n_td=1):
+
+def apply_temporal_difference(transitions, reward_discount, n_td=1):
     """
     Assign the next_state of each transition n_td steps ahead
     Add discounted rewards of next n_td-1 steps to each transition
@@ -65,21 +67,22 @@ def apply_temporal_difference(transitions,reward_discount,n_td=1):
     transitions_td = []
     for i, tr in enumerate(transitions):
         td_tsn = Transition(
-            state = tr.state,
-            action = tr.action,
-            reward = tr.reward,
+            state=tr.state,
+            action=tr.action,
+            reward=tr.reward,
         )
-        
-        for j in range(i+1, min( len(transitions), i+n_td) ):
-            td_tsn.reward += transitions[j].reward * reward_discount ** (j-i)
+
+        for j in range(i + 1, min(len(transitions), i + n_td)):
+            td_tsn.reward += transitions[j].reward * reward_discount ** (j - i)
 
         if i + n_td < len(transitions):
-            td_tsn.next_state = transitions[i+n_td].state
+            td_tsn.next_state = transitions[i + n_td].state
 
         transitions_td.append(td_tsn)
     return transitions_td
 
-def generate_episode_transitions(game_type,hp,agent,opponent,player_pos) -> List:
+
+def generate_episode_transitions(game_type, hp, agent, opponent, player_pos) -> List:
     game = pyspiel.load_game(game_type)
     state = game.new_initial_state()
 
@@ -96,14 +99,14 @@ def generate_episode_transitions(game_type,hp,agent,opponent,player_pos) -> List
             current_player_ind = state.current_player()
             current_player = agent if current_player_ind == player_pos else opponent
             # If the player action is legal, do it. Otherwise, do random
-            action = current_player.get_move(game,state)
+            action = current_player.get_move(game, state)
             if action not in state.legal_actions():
                 action = random.choice(state.legal_actions())
 
-            state_for_cov, _ = get_training_and_viewing_state(game,state)
+            state_for_cov, _ = get_training_and_viewing_state(game, state)
             new_transition = Transition(
-                state = state_for_cov,
-                action = action,
+                state=state_for_cov,
+                action=action,
             )
             if current_player_ind == player_pos:
                 agent_transitions.append(new_transition)
@@ -112,27 +115,24 @@ def generate_episode_transitions(game_type,hp,agent,opponent,player_pos) -> List
 
             if agent_transitions:
                 agent_transitions[-1].reward = state.rewards()[player_pos]
-            
 
     agent_transitions = apply_temporal_difference(
         agent_transitions,
         hp["DISCOUNT_RATE"],
         n_td=hp["N_TD"],
-        )
+    )
     return agent_transitions
 
 
 def record_episode_statistics(
-    writer,
-    game,
-    step,
-    experience_buffer,
-    reward_buffer,
-    reward_buffer_vs):
+    writer, game, step, experience_buffer, reward_buffer, reward_buffer_vs
+):
 
     # Record move distribution
     move_distribution = [mr.action for mr in experience_buffer]
-    move_distribution = np.array([move_distribution.count(i) for i in range(game.num_distinct_actions())])
+    move_distribution = np.array(
+        [move_distribution.count(i) for i in range(game.num_distinct_actions())]
+    )
     for i in range(game.num_distinct_actions()):
         f = move_distribution[i] / sum(move_distribution)
         writer.add_scalar(f"Action frequency: {i}", f, step)
@@ -142,7 +142,7 @@ def record_episode_statistics(
     writer.add_scalar("Average reward", smoothed_reward, step)
 
     # Record win rate overall
-    wins = sum(r == game.max_utility() for r in reward_buffer) 
+    wins = sum(r == game.max_utility() for r in reward_buffer)
     ties = sum(r == 0 for r in reward_buffer)
     losses = sum(r == game.min_utility() for r in reward_buffer)
     assert wins + ties + losses == len(reward_buffer)
@@ -157,7 +157,8 @@ def record_episode_statistics(
         reward_vs = sum(opp_buffer) / len(opp_buffer)
         writer.add_scalar(f"reward-vs-{opp_name}", reward_vs, step)
 
-def add_symmetries(game_type,training_data):
+
+def add_symmetries(game_type, training_data):
     """
     Not implemented yet
     """
