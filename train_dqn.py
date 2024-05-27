@@ -21,7 +21,6 @@ from utils import Connect4Error
 import pyspiel
 from utils import (
     get_training_and_viewing_state,
-    add_symmetries,
     record_episode_statistics,
     generate_episode_transitions,
 )
@@ -188,6 +187,8 @@ def update_neural_network(
         writer.add_histogram("weight-bias-updates", weights_and_biases_delta, step)
 
     # Update policy
+    if hp["RECORD_HISTOGRAMS"] % hp["SYNC_TARGET_NETWORK"] != 0:
+        raise Connect4Error("SYNC_TARGET_NETWORK must divide RECORD_HISTOGRAMS")
     if step % hp["SYNC_TARGET_NETWORK"] == 0:
         if step % hp["RECORD_HISTOGRAMS"] == 0:
             weights_and_biases_flat = np.concatenate(
@@ -233,7 +234,7 @@ def train_dqn(game_type, hp):
     optimizer = Adam(learning_rate=hp["LEARNING_RATE"])
 
     writer = SummaryWriter()
-    best_reward = 0
+    best_reward = hp["SAVE_MODEL_ABS_THRESHOLD"]
     episode_ind = 0  # Number of full episodes completed
     step = 0  # Number of agent actions taken
     while True:
@@ -257,21 +258,19 @@ def train_dqn(game_type, hp):
             experience_buffer.append(t)
         reward_buffer.append(agent_transitions[-1].reward)
         reward_buffer_vs[opponent.name].append(agent_transitions[-1].reward)
-        record_episode_statistics(
-            writer, game, step, experience_buffer, reward_buffer, reward_buffer_vs
-        )
+        if episode_ind % hp["RECORD_EPISODES"] == 0:
+            record_episode_statistics(
+                writer, game, step, experience_buffer, reward_buffer, reward_buffer_vs
+            )
 
         if agent.random_weight > hp["EPSILON_FINAL"]:
             writer.add_scalar("epsilon", agent.random_weight, step)
 
         # Save model if we have a historically best result
         smoothed_reward = sum(reward_buffer) / len(reward_buffer)
-        model_save_threshold = max(
-            hp["SAVE_MODEL_ABS_THRESHOLD"], best_reward + hp["SAVE_MODEL_REL_THRESHOLD"]
-        )
         if (
             len(reward_buffer) == hp["REWARD_BUFFER_SIZE"]
-            and smoothed_reward > model_save_threshold
+            and smoothed_reward > best_reward + hp["SAVE_MODEL_REL_THRESHOLD"]
         ):
             agent.model.save(f"magnus-DQN.keras")
             best_reward = smoothed_reward
@@ -288,8 +287,6 @@ def train_dqn(game_type, hp):
             training_data = sample_experience_buffer(
                 experience_buffer, hp["BATCH_SIZE"]
             )
-            if hp["USE_SYMMETRY"]:
-                training_data = add_symmetries(game_type, training_data)
 
             update_neural_network(
                 step,

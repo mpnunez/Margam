@@ -18,6 +18,14 @@ from tqdm import tqdm
 from player import ColumnSpammer, MiniMax, Player, RandomPlayer
 from utils import Connect4Error
 
+import pyspiel
+
+from utils import (
+    get_training_and_viewing_state,
+    record_episode_statistics,
+    generate_episode_transitions,
+)
+
 
 class PolicyPlayer(Player):
 
@@ -25,12 +33,16 @@ class PolicyPlayer(Player):
         super().__init__(*args, **kwargs)
         self.model = None
 
-    def get_move(self, board: np.array, game) -> int:
-        logits = self.model.predict_on_batch(board[np.newaxis, :])
+    def get_move(self, game, state) -> int:
+        state_for_cov, _ = get_training_and_viewing_state(game, state)
+        logits = self.model.predict_on_batch(state_for_cov[np.newaxis, :])
         if len(self.model.outputs) == 2:  # for actor-critic
             logits, _ = logits
         move_probabilities = softmax(logits[0])
-        selected_move = random.choices(game.options, weights=move_probabilities, k=1)[0]
+        action_options = list(range(game.num_distinct_actions()))
+        selected_move = random.choices(action_options, weights=move_probabilities, k=1)[
+            0
+        ]
         return selected_move
 
 
@@ -58,10 +70,12 @@ def initialize_model(game_type, hp, show_model=True):
     else:
         raise Connect4Error(f"{game_type} not implemented")
 
-    agent.model = keras.Model(inputs=nn_input, outputs=nn_outputs, name="policy-model")
+    model = keras.Model(inputs=nn_input, outputs=nn_outputs, name="policy-model")
 
     if show_model:
-        agent.model.summary()
+        model.summary()
+
+    return model
 
 
 def train_pg(game_type, hp):
@@ -75,28 +89,27 @@ def train_pg(game_type, hp):
     agent.model = initialize_model(game_type, hp)
 
     opponents = [MiniMax(name="Minnie", max_depth=1)]
-    reward_buffer = deque(maxlen=REWARD_BUFFER_SIZE)
+    reward_buffer = deque(maxlen=hp["REWARD_BUFFER_SIZE"])
     reward_buffer_vs = {}
     for opp in opponents:
-        reward_buffer_vs[opp.name] = deque(maxlen=REWARD_BUFFER_SIZE // len(opponents))
+        reward_buffer_vs[opp.name] = deque(
+            maxlen=hp["REWARD_BUFFER_SIZE"] // len(opponents)
+        )
 
-    optimizer = Adam(learning_rate=LEARNING_RATE)
+    optimizer = Adam(learning_rate=hp["LEARNING_RATE"])
     mse_loss = MeanSquaredError()
 
-    batch_states = []
-    batch_actions = []
-    batch_scales = []
-    n_episodes_in_batch = 0
+    epsisode_transitions = []
+    experience_buffer = deque(maxlen=hp["REPLAY_SIZE"])
 
     writer = SummaryWriter()
-    best_reward = 0
-    for step, (transition, q_value, opponent) in enumerate(
-        generate_transitions_pg(agent, opponents)
-    ):
+    best_reward = hp["SAVE_MODEL_ABS_THRESHOLD"]
+    episode_ind = 0  # Number of full episodes completed
+    step = 0  # Number of agent actions taken
+    while True:
 
-        batch_states.append(transition.state)
-        batch_actions.append(transition.selected_move)
-        batch_scales.append(q_value)
+        if episode_ind > hp["MAX_EPISODES"]:
+            break
 
         opponent = opponents[(episode_ind // 2) % len(opponents)]
         player_pos = episode_ind % 2
@@ -104,44 +117,88 @@ def train_pg(game_type, hp):
             game_type, hp, agent, opponent, player_pos
         )
         episode_ind += 1
+        step += len(agent_transitions)
+        epsisode_transitions.append(agent_transitions)
 
         reward_buffer.append(agent_transitions[-1].reward)
-        opp_buffer[opponent.name].append(agent_transitions[-1])
-        record_episode_statistics(
-            writer, game, step, experience_buffer, reward_buffer, reward_buffer_vs
-        )
+        reward_buffer_vs[opponent.name].append(agent_transitions[-1].reward)
+        for t in agent_transitions:
+            experience_buffer.append(t)
+        if episode_ind % hp["RECORD_EPISODES"] == 0:
+            record_episode_statistics(
+                writer, game, step, experience_buffer, reward_buffer, reward_buffer_vs
+            )
 
-        if len(reward_buffer) == REWARD_BUFFER_SIZE and smoothed_reward > max(
-            SAVE_MODEL_ABS_THRESHOLD, best_reward + SAVE_MODEL_REL_THRESHOLD
+        # Save model if we have a historically best result
+        smoothed_reward = sum(reward_buffer) / len(reward_buffer)
+        if (
+            len(reward_buffer) == hp["REWARD_BUFFER_SIZE"]
+            and smoothed_reward > best_reward + hp["SAVE_MODEL_REL_THRESHOLD"]
         ):
-            agent.model.save(f"{agent.name}.keras")
+            agent.model.save(f"{agent.name}-PG.keras")
             best_reward = smoothed_reward
 
         # Don't start training the network until we have enough data
-        if n_episodes_in_batch < BATCH_N_EPISODES:
+        if len(epsisode_transitions) < hp["BATCH_N_EPISODES"]:
             continue
 
-        # Chosen moves
-        selected_move_mask = one_hot(batch_actions, NOUTPUTS)
-        x_train = np.array(batch_states)
+        training_data = [t for et in epsisode_transitions for t in et]
+        record_histograms = (
+            step // hp["RECORD_HISTOGRAMS"]
+            != (step - len(training_data)) // hp["RECORD_HISTOGRAMS"]
+        )
+        record_scalars = (
+            step // hp["RECORD_SCALARS"]
+            != (step - len(training_data)) // hp["RECORD_SCALARS"]
+        )
 
-        batch_scales = np.array(batch_scales).astype("float32")
+        # Unpack training data
+        game = pyspiel.load_game(game_type)
+        selected_actions = [trsn.action for trsn in training_data]
+        selected_move_mask = one_hot(selected_actions, game.num_distinct_actions())
+        x_train = np.array([trsn.state for trsn in training_data])
+        rewards = np.array([trsn.reward for trsn in training_data]).astype("float32")
 
         with tf.GradientTape() as tape:
 
-            logits = agent.model.predict_on_batch(x_train)
-            if actor_critic:
+            logits = agent.model(x_train)
+            if hp["ACTOR_CRITIC"]:
+
+                # Update rewards with value of future state
+                if hp["N_TD"] != -1:
+
+                    # Bellman equation part
+                    # Take maximum Q(s',a') of board states we end up in
+                    non_terminal_states = np.array(
+                        [trsn.next_state is not None for trsn in training_data]
+                    )
+                    resulting_boards = np.array(
+                        [
+                            (
+                                trsn.next_state
+                                if trsn.next_state is not None
+                                else np.zeros(trsn.state.shape)
+                            )
+                            for trsn in training_data
+                        ]
+                    )
+                    _, resulting_state_values = agent.model(resulting_boards)
+                    resulting_state_values = resulting_state_values[:, 0]
+                    rewards = rewards + (
+                        hp["DISCOUNT_RATE"] ** hp["N_TD"]
+                    ) * np.multiply(non_terminal_states, resulting_state_values)
+
                 logits, state_values = logits
                 state_values = state_values[:, 0]
-                state_loss = mse_loss(batch_scales, state_values)
+                state_loss = mse_loss(rewards, state_values)
 
             # Compute logits
             move_log_probs = tf.nn.log_softmax(logits)
             masked_log_probs = tf.multiply(move_log_probs, selected_move_mask)
             selected_log_probs = tf.reduce_sum(masked_log_probs, 1)
-            obs_advantage = batch_scales
-            if actor_critic:
-                obs_advantage = batch_scales - tf.stop_gradient(state_values)
+            obs_advantage = rewards
+            if hp["ACTOR_CRITIC"]:
+                obs_advantage = rewards - tf.stop_gradient(state_values)
             expectation_loss = -tf.tensordot(
                 obs_advantage, selected_log_probs, axes=1
             ) / len(selected_log_probs)
@@ -151,17 +208,27 @@ def train_pg(game_type, hp):
             entropy_components = tf.multiply(move_probs, move_log_probs)
             entropy_each_state = -tf.reduce_sum(entropy_components, 1)
             entropy = tf.reduce_mean(entropy_each_state)
-            entropy_loss = -ENTROPY_BETA * entropy
+            entropy_loss = -hp["ENTROPY_BETA"] * entropy
 
             # Sum the loss contributions
             loss = expectation_loss + entropy_loss
-            if actor_critic:
-                loss += state_loss
-                writer.add_scalar("state-loss", state_loss.numpy(), step)
+            if hp["ACTOR_CRITIC"]:
+                loss += state_loss * hp["STATE_VALUE_BETA"]
+                if record_scalars:
+                    writer.add_scalar("state-loss", state_loss.numpy(), step)
 
-        writer.add_scalar("expectation-loss", expectation_loss.numpy(), step)
-        writer.add_scalar("entropy-loss", entropy_loss.numpy(), step)
-        writer.add_scalar("loss", loss.numpy(), step)
+                if record_histograms:
+                    writer.add_histogram("state_value_train", rewards, step)
+                    writer.add_histogram("state_value_pred", state_values.numpy(), step)
+                    state_value_error = state_values - rewards
+                    writer.add_histogram(
+                        "state_value_error", state_value_error.numpy(), step
+                    )
+
+        if record_scalars:
+            writer.add_scalar("log-expect-loss", expectation_loss.numpy(), step)
+            writer.add_scalar("entropy-loss", entropy_loss.numpy(), step)
+            writer.add_scalar("loss", loss.numpy(), step)
 
         grads = tape.gradient(loss, agent.model.trainable_variables)
         optimizer.apply_gradients(zip(grads, agent.model.trainable_variables))
@@ -169,35 +236,34 @@ def train_pg(game_type, hp):
         # optimizer.apply_gradients(zip(grads, tape.watched_variables()))
 
         # calc KL-div
-        new_logits_v = agent.model.predict_on_batch(x_train)
-        if actor_critic:
-            new_logits_v, _ = new_logits_v
-        new_prob_v = tf.nn.softmax(new_logits_v)
-        KL_EPSILON = 1e-7
-        new_prob_v_kl = new_prob_v + KL_EPSILON
-        move_probs_kl = move_probs + KL_EPSILON
-        kl_div_v = -np.sum(
-            np.log(new_prob_v_kl / move_probs_kl) * move_probs_kl, axis=1
-        ).mean()
-        writer.add_scalar("kl", kl_div_v.item(), step)
+        if record_scalars:
+            new_logits_v = agent.model.predict_on_batch(x_train)
+            if hp["ACTOR_CRITIC"]:
+                new_logits_v, _ = new_logits_v
+            new_prob_v = tf.nn.softmax(new_logits_v)
+            KL_EPSILON = 1e-7
+            new_prob_v_kl = new_prob_v + KL_EPSILON
+            move_probs_kl = move_probs + KL_EPSILON
+            kl_div_v = -np.sum(
+                np.log(new_prob_v_kl / move_probs_kl) * move_probs_kl, axis=1
+            ).mean()
+            writer.add_scalar("Kullback-Leibler divergence", kl_div_v.item(), step)
 
         # Track gradient variance
-        weights_and_biases_flat = np.concatenate(
-            [v.numpy().flatten() for v in agent.model.variables]
-        )
-        writer.add_histogram("weights and biases", weights_and_biases_flat, step)
-        grads_flat = np.concatenate([v.numpy().flatten() for v in grads])
-        writer.add_histogram("gradients", grads_flat, step)
-        grad_rmse = np.sqrt(np.mean(grads_flat**2))
-        writer.add_scalar("grad_rmse", grad_rmse, step)
-        grad_max = np.abs(grads_flat).max()
-        writer.add_scalar("grad_max", grad_max, step)
+        if record_histograms:
+            weights_and_biases_flat = np.concatenate(
+                [v.numpy().flatten() for v in agent.model.variables]
+            )
+            writer.add_histogram("weights and biases", weights_and_biases_flat, step)
+            grads_flat = np.concatenate([v.numpy().flatten() for v in grads])
+            writer.add_histogram("gradients", grads_flat, step)
+            grad_rmse = np.sqrt(np.mean(grads_flat**2))
+            writer.add_scalar("grad_rmse", grad_rmse, step)
+            grad_max = np.abs(grads_flat).max()
+            writer.add_scalar("grad_max", grad_max, step)
 
         # Reset sampling
-        batch_states = []
-        batch_actions = []
-        batch_scales = []
-        n_episodes_in_batch = 0
+        epsisode_transitions.clear()
 
     writer.close()
 

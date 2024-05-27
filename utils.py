@@ -121,6 +121,10 @@ def generate_episode_transitions(game_type, hp, agent, opponent, player_pos) -> 
         hp["DISCOUNT_RATE"],
         n_td=hp["N_TD"],
     )
+
+    if hp["USE_SYMMETRY"]:
+        agent_transitions = add_symmetries(game_type, agent_transitions)
+
     return agent_transitions
 
 

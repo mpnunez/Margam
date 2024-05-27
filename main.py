@@ -130,6 +130,8 @@ def train(game_type, algorithm, hyperparameter_file):
 
         train_dqn(game_type, hp[game_type])
     elif algorithm == "pg":
+        from train_pg import train_pg
+
         train_pg(game_type, hp[game_type])
 
 
