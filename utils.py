@@ -1,10 +1,18 @@
 import numpy as np
+from datetime import date, datetime
+import re
 
 from typing import List
 from dataclasses import dataclass
 import random
 
 import pyspiel
+
+
+def get_now_str():
+    now_str = str(datetime.now())
+    now_str = re.sub(" ", "-", now_str)
+    return now_str
 
 
 class Connect4Error(Exception):

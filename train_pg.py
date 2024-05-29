@@ -2,6 +2,7 @@ import itertools
 import random
 from collections import deque
 from enum import Enum
+import yaml
 
 import click
 import numpy as np
@@ -24,6 +25,7 @@ from utils import (
     get_training_and_viewing_state,
     record_episode_statistics,
     generate_episode_transitions,
+    get_now_str,
 )
 
 
@@ -85,8 +87,11 @@ def train_pg(game_type, hp):
         hp["N_TD"] = -1
 
     # Intialize players
-    agent = PolicyPlayer(name="VanillaPG")
+
+    agent = PolicyPlayer(name=f"PG-{get_now_str()}")
     agent.model = initialize_model(game_type, hp)
+    with open(f"best-agents/{agent.name}.yaml", "w") as f:
+        yaml.dump(hp, f)
 
     opponents = [MiniMax(name="Minnie", max_depth=1)]
     reward_buffer = deque(maxlen=hp["REWARD_BUFFER_SIZE"])
@@ -102,7 +107,7 @@ def train_pg(game_type, hp):
     epsisode_transitions = []
     experience_buffer = deque(maxlen=hp["REPLAY_SIZE"])
 
-    writer = SummaryWriter()
+    writer = SummaryWriter(f"runs/{agent.name}")
     best_reward = hp["SAVE_MODEL_ABS_THRESHOLD"]
     episode_ind = 0  # Number of full episodes completed
     step = 0  # Number of agent actions taken
@@ -135,7 +140,7 @@ def train_pg(game_type, hp):
             len(reward_buffer) == hp["REWARD_BUFFER_SIZE"]
             and smoothed_reward > best_reward + hp["SAVE_MODEL_REL_THRESHOLD"]
         ):
-            agent.model.save(f"{agent.name}-PG.keras")
+            agent.model.save(f"best-agents/{agent.name}.keras")
             best_reward = smoothed_reward
 
         # Don't start training the network until we have enough data
