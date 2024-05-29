@@ -37,8 +37,8 @@ def get_training_and_viewing_state(game, state):
     tensor_shape = game.observation_tensor_shape()
     state_np = np.reshape(np.asarray(state_as_tensor), tensor_shape)
 
-    # Remove last element of 1st dimension showing empty spaces
-    state_np = state_np[1::-1, :, :]
+    # Remove 1st element of 1st dimension showing empty spaces
+    state_np = state_np[-1:0:-1, :, :]
 
     # Move players axis last to be the channels for conv net
     state_np_for_cov = np.moveaxis(state_np, 0, -1)
