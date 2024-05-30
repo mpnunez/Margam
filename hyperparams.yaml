@@ -1,6 +1,6 @@
 ---
 tic_tac_toe:
-  MAX_EPISODES: 200_000
+  MAX_EPISODES: 1_000_000
   #Learning:
   DISCOUNT_RATE: 0.90
   LEARNING_RATE: 0.0001

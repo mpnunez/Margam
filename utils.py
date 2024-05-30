@@ -56,7 +56,8 @@ class Transition:
     """
 
     state: np.array = None
-    action: int = 0
+    legal_actions: List = None
+    action: int = 0             # Action taken in game
     reward: float = 0
     next_state: np.array = None
 
@@ -77,6 +78,7 @@ def apply_temporal_difference(transitions, reward_discount, n_td=1):
         td_tsn = Transition(
             state=tr.state,
             action=tr.action,
+            legal_actions=tr.legal_actions,
             reward=tr.reward,
         )
 
@@ -107,14 +109,18 @@ def generate_episode_transitions(game_type, hp, agent, opponent, player_pos) -> 
             current_player_ind = state.current_player()
             current_player = agent if current_player_ind == player_pos else opponent
             # If the player action is legal, do it. Otherwise, do random
-            action = current_player.get_move(game, state)
-            if action not in state.legal_actions():
-                action = random.choice(state.legal_actions())
+            desired_action = current_player.get_move(game, state)
+            if desired_action in state.legal_actions():
+                action = desired_action
+            else:
+                action = random.choice(state.legal_actions())                
 
+            legal_actions = [int(i in state.legal_actions()) for i in range(game.num_distinct_actions())]
             state_for_cov, _ = get_training_and_viewing_state(game, state)
             new_transition = Transition(
                 state=state_for_cov,
                 action=action,
+                legal_actions=legal_actions,
             )
             if current_player_ind == player_pos:
                 agent_transitions.append(new_transition)

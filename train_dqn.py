@@ -49,6 +49,10 @@ class DQNPlayer(Player):
 
         state_for_cov, human_view_state = get_training_and_viewing_state(game, state)
         q_values = self.model.predict_on_batch(state_for_cov[np.newaxis, :])[0]
+        q_values = q_values.numpy().astype(float)
+        for i, _ in enumerate(q_values):
+            if i not in state.legal_actions():
+                q_values[i] = -np.inf
         max_q_ind = np.argmax(q_values)
 
         return max_q_ind

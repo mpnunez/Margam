@@ -41,7 +41,8 @@ class PolicyPlayer(Player):
         if len(self.model.outputs) == 2:  # for actor-critic
             logits, _ = logits
         move_probabilities = softmax(logits[0])
-        action_options = list(range(game.num_distinct_actions()))
+        action_options = state.legal_actions()
+        move_probabilities = [move_probabilities[i] for i in action_options]
         selected_move = random.choices(action_options, weights=move_probabilities, k=1)[
             0
         ]
@@ -83,7 +84,7 @@ def initialize_model(game_type, hp, show_model=True):
 def train_pg(game_type, hp):
 
     # Cannot do tempral differencing without critic
-    if not hp["ACTOR_CRITIC"]:s
+    if not hp["ACTOR_CRITIC"]:
         hp["N_TD"] = -1
 
     # Intialize players
@@ -261,6 +262,7 @@ def train_pg(game_type, hp):
             )
             writer.add_histogram("weights and biases", weights_and_biases_flat, step)
             grads_flat = np.concatenate([v.numpy().flatten() for v in grads])
+            writer.add_histogram("logits",logits.numpy().flatten(), step)
             writer.add_histogram("gradients", grads_flat, step)
             grad_rmse = np.sqrt(np.mean(grads_flat**2))
             writer.add_scalar("grad_rmse", grad_rmse, step)
