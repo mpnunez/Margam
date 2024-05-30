@@ -83,14 +83,14 @@ def initialize_model(game_type, hp, show_model=True):
 def train_pg(game_type, hp):
 
     # Cannot do tempral differencing without critic
-    if not hp["ACTOR_CRITIC"]:
+    if not hp["ACTOR_CRITIC"]:s
         hp["N_TD"] = -1
 
     # Intialize players
 
     agent = PolicyPlayer(name=f"PG-{get_now_str()}")
     agent.model = initialize_model(game_type, hp)
-    with open(f"best-agents/{agent.name}.yaml", "w") as f:
+    with open(f"saved-models/{agent.name}.yaml", "w") as f:
         yaml.dump(hp, f)
 
     opponents = [MiniMax(name="Minnie", max_depth=1)]
@@ -140,7 +140,7 @@ def train_pg(game_type, hp):
             len(reward_buffer) == hp["REWARD_BUFFER_SIZE"]
             and smoothed_reward > best_reward + hp["SAVE_MODEL_REL_THRESHOLD"]
         ):
-            agent.model.save(f"best-agents/{agent.name}.keras")
+            agent.model.save(f"saved-models/{agent.name}.keras")
             best_reward = smoothed_reward
 
         # Don't start training the network until we have enough data

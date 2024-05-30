@@ -23,6 +23,7 @@ from utils import (
     get_training_and_viewing_state,
     record_episode_statistics,
     generate_episode_transitions,
+    get_now_str,
 )
 
 
@@ -214,10 +215,12 @@ def train_dqn(game_type, hp):
     """
 
     # Intialize agent and model
-    agent = DQNPlayer(name="Magnus")
+    agent = DQNPlayer(name=f"DQN-{get_now_str()}")
     agent.model = initialize_model(game_type, hp)
     target_network = keras.models.clone_model(agent.model)
     target_network.set_weights(agent.model.get_weights())
+    with open(f"saved-models/{agent.name}.yaml", "w") as f:
+        yaml.dump(hp, f)
 
     game = pyspiel.load_game(game_type)
     opponents = [MiniMax(name="Minnie", max_depth=1)]
@@ -272,7 +275,7 @@ def train_dqn(game_type, hp):
             len(reward_buffer) == hp["REWARD_BUFFER_SIZE"]
             and smoothed_reward > best_reward + hp["SAVE_MODEL_REL_THRESHOLD"]
         ):
-            agent.model.save(f"magnus-DQN.keras")
+            agent.model.save(f"saved-models/{agent.name}.keras")
             best_reward = smoothed_reward
 
         for transition in agent_transitions:
