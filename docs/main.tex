@@ -61,6 +61,13 @@
 	Try increasing n in TD learning so the bias of the TD estimates is reduced.
 	MC Variance should not be a huge issue because a lot of the games look the same.
 	
+	You need to do a lot of masking in the training for the math and gradients to work out.
+	Mask unchosen moves always because you don't know what the consequence would be.
+	Mask illegal moves for policy gradient because you don't want to adjust the 
+	probability of an action that doesn't exist. But for keeping the structure
+	of the nerual network and computing efficiently, you need to keep the dimenions
+	and compute all the outputs in bulk, then mask the result.
+
 	\section{Opponents}
 	
 	It is important to have a reasonable opponent to play against. If the opponent is too hard, then the agent will not observe rewards that guide it to better performance. If the opponent is too easy (e.g. random player), then the agent will learn simple strategies to beat it and stick to that, even if the strategy is not great in general. For example, it is easy to beat a random Connect4 player by always dropping in the same column. Often the agent can get 4 in a row without the random player blocking it and take a quick victory. However, any decent player can block that.

@@ -160,14 +160,24 @@ def train_pg(game_type, hp):
 
         # Unpack training data
         game = pyspiel.load_game(game_type)
-        selected_actions = [trsn.action for trsn in training_data]
+        selected_actions = np.array([trsn.action for trsn in training_data])
         selected_move_mask = one_hot(selected_actions, game.num_distinct_actions())
         x_train = np.array([trsn.state for trsn in training_data])
         rewards = np.array([trsn.reward for trsn in training_data]).astype("float32")
+        action_legality = np.array([trsn.legal_actions for trsn in training_data]).astype("float32")
 
         with tf.GradientTape() as tape:
 
+            # Generate logits
             logits = agent.model(x_train)
+
+            # Mask logits for illegal moves
+            # Illegal moves have large negative logits
+            # With no dependence on model parameters
+            large_neg_logits = -10 * np.ones(logits.shape)
+            logits = tf.multiply(action_legality,logits) + tf.multiply((1-action_legality),large_neg_logits)
+
+
             if hp["ACTOR_CRITIC"]:
 
                 # Update rewards with value of future state
