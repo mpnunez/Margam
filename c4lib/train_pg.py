@@ -16,12 +16,11 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.nn import softmax
 from tqdm import tqdm
 
-from player import ColumnSpammer, MiniMax, Player, RandomPlayer
-from utils import Connect4Error
-
 import pyspiel
 
-from utils import (
+from c4lib.player import ColumnSpammer, MiniMax, Player, RandomPlayer
+from c4lib.utils import Connect4Error
+from c4lib.utils import (
     get_training_and_viewing_state,
     record_episode_statistics,
     generate_episode_transitions,

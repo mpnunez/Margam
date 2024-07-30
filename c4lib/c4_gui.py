@@ -3,9 +3,7 @@ import sys
 import time
 
 import numpy as np
-from connect4lib.dqn_player import DQNPlayer
-from connect4lib.game import Game, GameStatus
-from connect4lib.player import ColumnSpammer, HumanPlayer, Player, RandomPlayer
+
 from keras.models import load_model
 from PyQt5.QtCore import QObject, QThread, pyqtSignal, pyqtSlot
 from PyQt5.QtGui import QIcon, QPixmap
@@ -18,6 +16,10 @@ from PyQt5.QtWidgets import (
     QPushButton,
     QWidget,
 )
+
+from c4lib.dqn_player import DQNPlayer
+from c4lib.game import Game, GameStatus
+from c4lib.player import ColumnSpammer, HumanPlayer, Player, RandomPlayer
 
 """
 

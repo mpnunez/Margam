@@ -9,3 +9,10 @@ Uses Deep Q-learning from Chapter 6 of Deep Reinforcement Learning Hands-On [1].
 
 Developer
 - Marcel Nunez (marcelpnunez@gmail.com)
+
+## Setup
+
+```
+python3.8 -m venv .venv
+./.venv/bin/pip install -r requirements.in
+```

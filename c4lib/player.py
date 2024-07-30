@@ -6,7 +6,7 @@ from typing import List, Optional, Tuple
 
 import numpy as np
 
-from utils import get_training_and_viewing_state
+from c4lib.utils import get_training_and_viewing_state
 
 
 class Player(ABC):

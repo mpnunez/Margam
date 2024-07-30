@@ -1,12 +1,9 @@
 import click
 import pyspiel
-from player import HumanPlayer, MiniMax
+from c4lib.player import HumanPlayer, MiniMax
 import numpy as np
 import random
 import yaml
-
-
-# from train_pg import train_pg
 
 
 @click.group()
@@ -42,11 +39,7 @@ def main():
     help="Model file to load for AI player",
 )
 @click.option("--second", is_flag=True, default=False, help="Play as second player")
-@click.option(
-    "-u", "--gui", is_flag=True, default=False, help="Use GUI instead of command line"
-)
-def play(game_type, opponent, depth, model, second, gui):
-    # Enable choosing opponent with CLI
+def play(game_type, opponent, depth, model, second):
 
     # Intialize players
     human = HumanPlayer(name="Marcel")
@@ -54,14 +47,14 @@ def play(game_type, opponent, depth, model, second, gui):
     if opponent.lower() == "minimax":
         opponent = MiniMax(name="Maximus", max_depth=depth)
     elif opponent.lower() == "pg":
-        from train_pg import PolicyPlayer
+        from c4lib.train_pg import PolicyPlayer
         from keras.models import load_model
 
         opponent = PolicyPlayer(name="PG")
         opponent.model = load_model(model)
         opponent.model.summary()
     elif opponent.lower() == "dqn":
-        from train_dqn import DQNPlayer
+        from c4lib.train_dqn import DQNPlayer
         from keras.models import load_model
 
         opponent = DQNPlayer(name="DQN")
@@ -89,10 +82,6 @@ def play(game_type, opponent, depth, model, second, gui):
 
     winner = np.argmax(state.returns())
     print(f"{players[winner].name} won!")
-
-    # For GUI
-    # from connect-four-gui import run_gui
-    # run_gui(...)
 
 
 @main.command()
@@ -126,12 +115,10 @@ def train(game_type, algorithm, hyperparameter_file):
         hp = yaml.safe_load(f)
 
     if algorithm == "dqn":
-        from train_dqn import train_dqn
-
+        from c4lib.train_dqn import train_dqn
         train_dqn(game_type, hp[game_type])
     elif algorithm == "pg":
-        from train_pg import train_pg
-
+        from c4lib.train_pg import train_pg
         train_pg(game_type, hp[game_type])
 
 

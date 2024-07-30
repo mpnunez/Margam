@@ -16,10 +16,11 @@ from tensorflow.keras.losses import MeanSquaredError
 from tensorflow.keras.optimizers import Adam
 from tqdm import tqdm
 
-from player import MiniMax, Player
-from utils import Connect4Error
 import pyspiel
-from utils import (
+
+from c4lib.player import MiniMax, Player
+from c4lib.utils import (
+    Connect4Error,
     get_training_and_viewing_state,
     record_episode_statistics,
     generate_episode_transitions,
@@ -49,7 +50,7 @@ class DQNPlayer(Player):
 
         state_for_cov, human_view_state = get_training_and_viewing_state(game, state)
         q_values = self.model.predict_on_batch(state_for_cov[np.newaxis, :])[0]
-        q_values = q_values.numpy().astype(float)
+        q_values = q_values.astype(float)
         for i, _ in enumerate(q_values):
             if i not in state.legal_actions():
                 q_values[i] = -np.inf
@@ -240,7 +241,7 @@ def train_dqn(game_type, hp):
     mse_loss = MeanSquaredError()
     optimizer = Adam(learning_rate=hp["LEARNING_RATE"])
 
-    writer = SummaryWriter()
+    writer = SummaryWriter(f"runs/{agent.name}")
     best_reward = hp["SAVE_MODEL_ABS_THRESHOLD"]
     episode_ind = 0  # Number of full episodes completed
     step = 0  # Number of agent actions taken

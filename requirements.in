@@ -2,6 +2,6 @@ tensorflow
 keras
 pyqt5<5.12
 tqdm
-tensorboardX --no-cache-dir
+tensorboardX
 click
-
+open_spiel
