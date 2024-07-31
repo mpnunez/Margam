@@ -12,6 +12,8 @@ Developer
 
 ## Setup
 
+I used python 3.8.0
+
 ```
 python3.8 -m venv .venv
 ./.venv/bin/pip install -r requirements.in
