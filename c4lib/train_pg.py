@@ -69,6 +69,19 @@ def initialize_model(game_type, hp, show_model=True):
             state_value_output = layers.Dense(1, activation="linear")(x)
             nn_outputs = [logits_output, state_value_output]
 
+    elif game_type == "connect_four":
+        x = layers.Conv2D(64,4)(nn_input)
+        x = layers.MaxPooling2D(pool_size=(2,2))(x)
+        model_trunk_f = layers.Flatten()(x)
+        x = layers.Dense(64,activation="relu")(model_trunk_f)
+        logits_output = layers.Dense(game.num_distinct_actions(), activation="linear")(x)
+        nn_outputs = logits_output
+
+        if hp["ACTOR_CRITIC"]:
+            x = layers.Dense(64, activation="relu")(model_trunk_f)
+            state_value_output = layers.Dense(1, activation="linear")(x)
+            nn_outputs = [logits_output, state_value_output]
+
     else:
         raise Connect4Error(f"{game_type} not implemented")
 

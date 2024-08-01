@@ -90,8 +90,17 @@ def initialize_model(game_type, hp, show_model=True):
                 q_values - tf.math.reduce_mean(q_values, axis=1, keepdims=True) + sv
             )
     elif game_type == "connect_four":
-        # build some conv net
-        raise Connect4Error(f"Need to implement {game_type}")
+        x = layers.Conv2D(64,4)(nn_input)
+        x = layers.MaxPooling2D(pool_size=(2,2))(x)
+        x = layers.Flatten()(x)
+        x = layers.Dense(64,activation="relu")(x)
+        q_values = layers.Dense(game.num_distinct_actions(), activation="linear")(x)
+        if hp["DEULING_DQN"]:
+            x_sv = layers.Dense(32, activation="relu")(x)
+            sv = layers.Dense(1, activation="linear")(x_sv)
+            q_values = (
+                q_values - tf.math.reduce_mean(q_values, axis=1, keepdims=True) + sv
+            )
     else:
         raise Connect4Error(f"Unrecognized game type: {game_type}")
 
