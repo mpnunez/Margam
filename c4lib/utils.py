@@ -32,10 +32,22 @@ def get_training_and_viewing_state(game, state):
     human_view_state: 2D numpy array with vacancies
         and different player tokens as different integers
     """
+    
 
     state_as_tensor = state.observation_tensor()
     tensor_shape = game.observation_tensor_shape()
     state_np = np.reshape(np.asarray(state_as_tensor), tensor_shape)
+
+    print(state)
+    print(state_np)
+
+    die_counts = np.reshape(state_np[2:2+5*6],(5,6)).sum(axis=0)
+    print(die_counts)
+    bets_placed = np.reshape(state_np[32:-1],(10,6))
+    print(bets_placed)
+
+
+    return None, state
 
     # Remove 1st element of 1st dimension showing empty spaces
     state_np = state_np[-1:0:-1, :, :]
@@ -104,31 +116,31 @@ def generate_episode_transitions(game_type, hp, agent, opponent, player_pos) -> 
             action_list, prob_list = zip(*outcomes_with_probs)
             action = np.random.choice(action_list, p=prob_list)
             state.apply_action(action)
+            continue
+
+        current_player_ind = state.current_player()
+        current_player = agent if current_player_ind == player_pos else opponent
+        # If the player action is legal, do it. Otherwise, do random
+        desired_action = current_player.get_move(game, state)
+        if desired_action in state.legal_actions():
+            action = desired_action
         else:
+            action = random.choice(state.legal_actions())                
 
-            current_player_ind = state.current_player()
-            current_player = agent if current_player_ind == player_pos else opponent
-            # If the player action is legal, do it. Otherwise, do random
-            desired_action = current_player.get_move(game, state)
-            if desired_action in state.legal_actions():
-                action = desired_action
-            else:
-                action = random.choice(state.legal_actions())                
+        legal_actions = [int(i in state.legal_actions()) for i in range(game.num_distinct_actions())]
+        state_for_cov, _ = get_training_and_viewing_state(game, state)
+        new_transition = Transition(
+            state=state_for_cov,
+            action=action,
+            legal_actions=legal_actions,
+        )
+        if current_player_ind == player_pos:
+            agent_transitions.append(new_transition)
 
-            legal_actions = [int(i in state.legal_actions()) for i in range(game.num_distinct_actions())]
-            state_for_cov, _ = get_training_and_viewing_state(game, state)
-            new_transition = Transition(
-                state=state_for_cov,
-                action=action,
-                legal_actions=legal_actions,
-            )
-            if current_player_ind == player_pos:
-                agent_transitions.append(new_transition)
+        state.apply_action(action)
 
-            state.apply_action(action)
-
-            if agent_transitions:
-                agent_transitions[-1].reward = state.rewards()[player_pos]
+        if agent_transitions:
+            agent_transitions[-1].reward = state.rewards()[player_pos]
 
     agent_transitions = apply_temporal_difference(
         agent_transitions,

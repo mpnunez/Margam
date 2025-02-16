@@ -27,7 +27,8 @@ class HumanPlayer(Player):
 
         valid_input = False
         while not valid_input:
-            print("\nState")
+            print(f"\nPlayer: {self.name}")
+            print("State")
             state_np_for_cov, human_view_state = get_training_and_viewing_state(
                 game, state
             )

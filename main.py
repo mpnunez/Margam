@@ -23,7 +23,7 @@ def main():
 @click.option(
     "-o",
     "--opponent",
-    type=click.Choice(["minimax", "dqn", "pg"], case_sensitive=False),
+    type=click.Choice(["human", "minimax", "dqn", "pg"], case_sensitive=False),
     default="minimax",
     show_default=True,
     help="opponent type",
@@ -44,16 +44,19 @@ def play(game_type, opponent, depth, model, second):
     # Intialize players
     human = HumanPlayer(name="Marcel")
 
-    if opponent.lower() == "minimax":
+    opponent = opponent.lower()
+    if opponent == "minimax":
         opponent = MiniMax(name="Maximus", max_depth=depth)
-    elif opponent.lower() == "pg":
+    elif opponent:
+        opponent = HumanPlayer("Opponent")
+    elif opponent == "pg":
         from c4lib.train_pg import PolicyPlayer
         from keras.models import load_model
 
         opponent = PolicyPlayer(name="PG")
         opponent.model = load_model(model)
         opponent.model.summary()
-    elif opponent.lower() == "dqn":
+    elif opponent == "dqn":
         from c4lib.train_dqn import DQNPlayer
         from keras.models import load_model
 
@@ -63,7 +66,13 @@ def play(game_type, opponent, depth, model, second):
 
     players = [opponent, human] if second else [human, opponent]
 
-    game = pyspiel.load_game(game_type)
+    if game_type == "liars_dice":
+        game = pyspiel.load_game(game_type,{"numdice":5})
+        # You can pass a dictionary as an optional second argument
+        # to load_game to pass game parameters. For liars poker the
+        # default number of die is 1.
+    else:
+        game = pyspiel.load_game(game_type)
     state = game.new_initial_state()
     while not state.is_terminal():
         if state.is_chance_node():
@@ -80,6 +89,7 @@ def play(game_type, opponent, depth, model, second):
                 action = random.choice(state.legal_actions())
             state.apply_action(action)
 
+    print(state.returns())
     winner = np.argmax(state.returns())
     print(f"{players[winner].name} won!")
 
