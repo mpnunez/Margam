@@ -32,6 +32,7 @@ class HumanPlayer(Player):
             state_np_for_cov, human_view_state = get_training_and_viewing_state(
                 game, state
             )
+            print(state_np_for_cov)
             print(human_view_state)
             print("Available moves:")
             print(state.legal_actions())

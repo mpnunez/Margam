@@ -47,14 +47,19 @@ def play(game_type, opponent, depth, model, second):
     opponent = opponent.lower()
     if opponent == "minimax":
         opponent = MiniMax(name="Maximus", max_depth=depth)
-    elif opponent:
+    elif opponent == "human":
         opponent = HumanPlayer("Opponent")
     elif opponent == "pg":
         from c4lib.train_pg import PolicyPlayer
         from keras.models import load_model
 
         opponent = PolicyPlayer(name="PG")
-        opponent.model = load_model(model)
+        if game_type == "liars_dice":
+            from c4lib.train_pg import initialize_model
+            opponent.model = initialize_model(
+                game_type, {"ACTOR_CRITIC":False}, show_model=True)
+        else:
+            opponent.model = load_model(model)
         opponent.model.summary()
     elif opponent == "dqn":
         from c4lib.train_dqn import DQNPlayer
