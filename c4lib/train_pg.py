@@ -47,9 +47,24 @@ class PolicyPlayer(Player):
         ]
         return selected_move
 
+class ConservativePlayer(Player):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def get_move(self, game, state) -> int:
+        """
+        Call with 33% probability. Otherwise take
+        most conservative bet
+        """
+        action_options = state.legal_actions()
+        if np.random.uniform(low=0.0, high=1.0) < 0.33:
+            return action_options[-1]
+        return action_options[0]
+
 
 def initialize_model(game_type, hp, show_model=True):
-    game = pyspiel.load_game(game_type)
+    game = pyspiel.load_game(game_type,{"numdice":5})
     state = game.new_initial_state()
     #state_np_for_cov, human_view_state = get_training_and_viewing_state(game, state)
     nn_input = keras.Input(shape=(20,))
@@ -119,7 +134,7 @@ def train_pg(game_type, hp):
     with open(f"saved-models/{agent.name}.yaml", "w") as f:
         yaml.dump(hp, f)
 
-    opponents = [MiniMax(name="Minnie", max_depth=1)]
+    opponents = [ConservativePlayer(name="Conservative")]
     reward_buffer = deque(maxlen=hp["REWARD_BUFFER_SIZE"])
     reward_buffer_vs = {}
     for opp in opponents:
@@ -184,9 +199,10 @@ def train_pg(game_type, hp):
         )
 
         # Unpack training data
-        game = pyspiel.load_game(game_type)
+        game = pyspiel.load_game(game_type,{"numdice":5})
         selected_actions = np.array([trsn.action for trsn in training_data])
-        selected_move_mask = one_hot(selected_actions, game.num_distinct_actions())
+        #selected_move_mask = one_hot(selected_actions, game.num_distinct_actions())
+        selected_move_mask = one_hot(selected_actions, 61)
         x_train = np.array([trsn.state for trsn in training_data])
         rewards = np.array([trsn.reward for trsn in training_data]).astype("float32")
         action_legality = np.array([trsn.legal_actions for trsn in training_data]).astype("float32")

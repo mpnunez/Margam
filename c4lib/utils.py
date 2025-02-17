@@ -32,11 +32,10 @@ def get_training_and_viewing_state(game, state):
     human_view_state: 2D numpy array with vacancies
         and different player tokens as different integers
     """
-
+    
     state_as_tensor = state.observation_tensor()
     tensor_shape = game.observation_tensor_shape()
     state_np = np.reshape(np.asarray(state_as_tensor), tensor_shape)
-    
 
     """
     // One-hot encoding for player number.
@@ -135,7 +134,10 @@ def apply_temporal_difference(transitions, reward_discount, n_td=1):
 
 
 def generate_episode_transitions(game_type, hp, agent, opponent, player_pos) -> List:
-    game = pyspiel.load_game(game_type)
+    if game_type == "liars_dice":
+        game = pyspiel.load_game(game_type,{"numdice":5})
+    else:
+        game = pyspiel.load_game(game_type)
     state = game.new_initial_state()
 
     agent_transitions = []
