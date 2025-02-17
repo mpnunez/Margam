@@ -32,22 +32,52 @@ def get_training_and_viewing_state(game, state):
     human_view_state: 2D numpy array with vacancies
         and different player tokens as different integers
     """
-    
 
     state_as_tensor = state.observation_tensor()
     tensor_shape = game.observation_tensor_shape()
     state_np = np.reshape(np.asarray(state_as_tensor), tensor_shape)
+    
 
-    print(state)
-    print(state_np)
+    """
+    // One-hot encoding for player number.
+    // One-hot encoding for each die (max_dice_per_player_ * sides).
+    // One slot(bit) for each legal bid.
+    // One slot(bit) for calling liar. (Necessary because observations and
+    // information states need to be defined at terminals)
+    Only the previous bid of each player are reported
+    """
 
     die_counts = np.reshape(state_np[2:2+5*6],(5,6)).sum(axis=0)
-    print(die_counts)
     bets_placed = np.reshape(state_np[32:-1],(10,6))
-    print(bets_placed)
 
+    view_matrix = np.concatenate(
+        [die_counts[np.newaxis, :],
+        bets_placed,]
+    )
 
-    return None, state
+    train_tensor = np.zeros(14)
+    bets_placed_flat = bets_placed.flatten()
+    if bets_placed_flat.sum() >= 1:    # only has previous bet
+        ind = bets_placed_flat.argmax()
+        quantity = ind // 6 + 1
+        value = ind % 6 + 1
+        train_tensor[0] = quantity
+        train_tensor[value] = 1
+
+        if bets_placed_flat.sum() >= 2:    # current player has previous bet
+            bets_placed_flat[ind] = 0
+            ind2 = bets_placed_flat.argmax()
+            quantity = ind2 // 6 + 1
+            value = ind2 % 6 + 1
+            train_tensor[7] = quantity
+            train_tensor[7+value] = 1
+            bets_placed_flat[ind] = 1
+
+    train_tensor = np.concatenate([die_counts,train_tensor])
+
+    return train_tensor, view_matrix
+
+    # For tic-tac-toe and Connect4...
 
     # Remove 1st element of 1st dimension showing empty spaces
     state_np = state_np[-1:0:-1, :, :]

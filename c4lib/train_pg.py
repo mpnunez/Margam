@@ -51,8 +51,8 @@ class PolicyPlayer(Player):
 def initialize_model(game_type, hp, show_model=True):
     game = pyspiel.load_game(game_type)
     state = game.new_initial_state()
-    state_np_for_cov, human_view_state = get_training_and_viewing_state(game, state)
-    nn_input = keras.Input(shape=state_np_for_cov.shape)
+    #state_np_for_cov, human_view_state = get_training_and_viewing_state(game, state)
+    nn_input = keras.Input(shape=(20,))
 
     if game_type == "tic_tac_toe":
         input_flat = layers.Flatten()(nn_input)
@@ -75,6 +75,19 @@ def initialize_model(game_type, hp, show_model=True):
         model_trunk_f = layers.Flatten()(x)
         x = layers.Dense(64,activation="relu")(model_trunk_f)
         logits_output = layers.Dense(game.num_distinct_actions(), activation="linear")(x)
+        nn_outputs = logits_output
+
+        if hp["ACTOR_CRITIC"]:
+            x = layers.Dense(64, activation="relu")(model_trunk_f)
+            state_value_output = layers.Dense(1, activation="linear")(x)
+            nn_outputs = [logits_output, state_value_output]
+
+    elif game_type == "liars_dice":
+        model_trunk_f = layers.Flatten()(nn_input)
+        x = layers.Dense(64,activation="relu")(model_trunk_f)
+        logits_output = layers.Dense(
+            61, activation="linear"
+            )(x)
         nn_outputs = logits_output
 
         if hp["ACTOR_CRITIC"]:
