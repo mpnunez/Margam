@@ -52,11 +52,11 @@ def play(game_type, opponent, depth, model, second):
     elif opponent == "human":
         opponent = HumanPlayer(gh, "Opponent")
     elif opponent == "pg":
-        from margam.train_pg import PolicyPlayer
+        from margam.pg import PolicyPlayer
         opponent = PolicyPlayer(gh, name="PG", model=model)
         opponent.model.summary()
     elif opponent == "dqn":
-        from margam.train_dqn import DQNPlayer
+        from margam.dqn import DQNPlayer
         opponent = DQNPlayer(gh, name="DQN", model=model)
         opponent.model.summary()
 
@@ -69,6 +69,33 @@ def play(game_type, opponent, depth, model, second):
     winner = np.argmax(total_rewards)
     print(f"{players[winner].name} won!")
 
+
+from margam.merlob_bot import MerlobBot
+
+@main.command()
+def tournament():
+
+    gh = build_game_handler("liars_dice")
+
+    # Intialize players
+    brian = MerlobBot(gh, name="MerlobGameTheory")
+
+    from margam.pg import PolicyPlayer
+    model = "saved-models/liars-dice/PG-2025-02-16-20:03:50.521631.keras"
+    marcel = PolicyPlayer(gh, name="Nunez-PG", model=model)
+    marcel.model.summary()
+
+    NGAMES = 1000
+    wins = {p.name: 0 for p in [marcel, brian]}
+    for i in range(NGAMES):
+        players = [brian, marcel]
+        if i%2:
+            players = list(reversed(players))
+        tsns = gh.generate_episode_transitions(players)
+        total_rewards = [sum(tsn.reward for tsn in tsn_list) for tsn_list in tsns]
+        winner = np.argmax(total_rewards)
+        wins[players[winner].name] += 1
+    print(wins)
 
 @main.command()
 @click.argument('hyperparameter-file')
