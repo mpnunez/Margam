@@ -94,7 +94,6 @@ class GameHandler(ABC):
                 action = np.random.choice(action_list, p=prob_list)
             else:
                 current_player_ind = state.current_player()
-                print(current_player_ind)
                 current_player = players[current_player_ind]
                 # If the player action is legal, do it. Otherwise, do random
                 desired_action = current_player.get_move(state)
@@ -113,7 +112,6 @@ class GameHandler(ABC):
                     action=action,
                     legal_actions=legal_actions,
                 )
-                print(f"Current player: {current_player_ind}")
                 agent_transitions[current_player_ind].append(new_transition)
             state.apply_action(action)
 
