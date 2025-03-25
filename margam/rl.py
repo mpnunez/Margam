@@ -78,6 +78,15 @@ class GameHandler(ABC):
     def get_open_spiel_game(self):
         return pyspiel.load_game(self.game_type.value)
 
+    def eg_input(self):
+        state = self.game.new_initial_state()
+        while state.is_chance_node():
+            outcomes_with_probs = state.chance_outcomes()
+            action_list, prob_list = zip(*outcomes_with_probs)
+            action = np.random.choice(action_list, p=prob_list)
+            state.apply_action(action)
+        return self.get_eval_vector(state)
+
     def generate_episode_transitions(self, players) -> List[List[Transition]]:
         """
         Generate state transition histories for all players.
