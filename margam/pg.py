@@ -36,8 +36,7 @@ class PolicyPlayer(Player):
         return selected_move
 
     def initialize_model(self, show_model=True):
-        eg_state = self.game_handler.game.new_initial_state()
-        eg_input = self.game_handler.get_eval_vector(eg_state)
+        eg_input = self.game_handler.eg_input()
         nn_input = keras.Input(shape=eg_input.shape)
 
         if self.game_handler.game_type == GameType.TIC_TAC_TOE:
