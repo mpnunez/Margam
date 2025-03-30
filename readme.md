@@ -23,7 +23,7 @@ To launch an monitor a training:
 Step 1: Start the training. For example, to train a DQN agent on Tic-Tac-Toe
 
 ```
-python main.py train -a dqn -g tic_tac_toe
+python main.py train input_files/connect-four-dqn.yaml
 ```
 
 Step 2: Launch tensorboard

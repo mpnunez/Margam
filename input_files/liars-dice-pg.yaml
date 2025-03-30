@@ -2,6 +2,7 @@
 GAME: "liars_dice"
 OPPONENTS:
   - "conservative"
+  - "merlobbot"
 ALGORITHM: "PG"
 MAX_EPISODES: 200_000
 #Learning:

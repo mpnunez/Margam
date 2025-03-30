@@ -81,7 +81,7 @@ def tournament():
     brian = MerlobBot(gh, name="MerlobGameTheory")
 
     from margam.pg import PolicyPlayer
-    model = "saved-models/liars-dice/PG-2025-02-16-20:03:50.521631.keras"
+    model = "PG-liars_dice-2025-03-24-22:00:57.433581/PG-liars_dice-2025-03-24-22:00:57.433581-agent.keras"
     marcel = PolicyPlayer(gh, name="Nunez-PG", model=model)
     marcel.model.summary()
 
@@ -113,28 +113,23 @@ def train(hyperparameter_file):
         sys.exit(1)
 
     gh = build_game_handler(game_type)
-    opponents = [create_player(gh) for opp in opponent_list]
 
     if algorithm.lower() == "dqn":
         from margam.dqn import DQNPlayer, DQNTrainer
         agent = PolicyPlayer(gh, name="pg-agent", model=None)
-        opponents = get_opponents(gh.game_type)
         trainer = DQNTrainer(
-            game_type = gh,
             hyperparameters = hp,
-            agent = agent,
-            opponents = opponents,
             save_to_disk = True,
             )
     elif algorithm.lower() == "pg":
         from margam.pg import PolicyPlayer, PolicyGradientTrainer
         agent = PolicyPlayer(gh, name="dqn-agent", model=None)
-        trainer = PolicyGradientTrainer(agent=agent)
+        trainer = PolicyGradientTrainer(hyperparameters = hp,save_to_disk = True)
     else:
         print(f"{algorithm} is not a supported algorithm. Options are dqn or pg.")
         sys.exit(1)
 
-    print(f"Training agent with {trainer.type} to play {game_type}")
+    print(f"Training agent with {type(trainer).__name__} to play {game_type}")
     trainer.train()
 
 

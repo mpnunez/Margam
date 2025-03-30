@@ -19,6 +19,9 @@ def create_player(opp_type, game_handler, **kwargs):
         return MiniMax(game_handler, name="Minimax", **kwargs)
     elif opp_type == "spammer":
         return ActionSpammer(game_handler, name="Spammer", **kwargs)
+    elif opp_type == "merlobbot":
+        from margam.merlob_bot import MerlobBot
+        return MerlobBot(game_handler, name = "MerlobBot", probability_of_lying=0)
     else:
         raise MargamError(f"Unsupported opponenet type: {opp_type}")
 
