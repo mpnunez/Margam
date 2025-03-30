@@ -3,6 +3,10 @@ import pytest
 from margam.rl import GameType, build_game_handler
 from margam.player import RandomPlayer
 
+from main import tournament
+
+from click.testing import CliRunner
+
 @pytest.mark.parametrize("game_type", [gt.value for gt in GameType])
 def test_random_players(game_type):
     """
@@ -12,3 +16,6 @@ def test_random_players(game_type):
     players = [RandomPlayer(gh),RandomPlayer(gh)]
     ets = gh.generate_episode_transitions(players)
     assert(len(ets)>0)
+
+def test_trounament():
+    CliRunner().invoke(tournament, [])

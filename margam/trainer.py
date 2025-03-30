@@ -15,6 +15,8 @@ from margam.player import Player, create_player
 
 from tensorboardX import SummaryWriter
 
+from margam.merlob_bot import MerlobBot
+from margam.rl import build_game_handler
 
 class RLTrainer(ABC):
     """

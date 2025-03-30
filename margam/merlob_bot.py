@@ -1,5 +1,6 @@
 import math
 from margam.player import Player
+from margam.rl import GameType, MargamError
 
 CALL = 60
 
@@ -182,6 +183,8 @@ class MerlobBot(Player):
     def __init__(self, game_handler, name=None, probability_of_lying = 0):
         super().__init__(game_handler, name)
         self.probability_of_lying = probability_of_lying
+        if self.game_handler.GameType != GameType.LIARS_DICE:
+            raise MargamError("MerlobBot can only play liars_dice.")
 
     def get_move(self, state) -> int:
         state_as_tensor = state.observation_tensor()
